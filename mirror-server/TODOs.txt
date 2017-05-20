@@ -1,6 +1,0 @@
-1. Change the content server and add the delay option (only change required in the MirrorServer for this one is to send the ID (that we get from the queue)
-2. Remove un-needed code (i.e. we don't need the workers to check the amount of files they will receive since every item on the queue is a file)
-3. Organise the code into one directory, create a makefile, add shared libraries
-4. TEST TEST TEST TEST with as many different parameters as possible
-5. Run it on the linux machine: After cleaning the code and removing any un-needed files, scp it to a linux machine and TEST TEST TEST again
-	(Let's get a 100 on this one ;) )
