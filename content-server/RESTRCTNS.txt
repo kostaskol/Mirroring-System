@@ -1,0 +1,2 @@
+1. Directory path must be absolute for ContentServer
+2. When requesting data from the ContentServer, '.' and '..' are removed from the path. '..' in particular is a big security whole

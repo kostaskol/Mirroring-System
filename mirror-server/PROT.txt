@@ -1,0 +1,5 @@
+1. Each mirror manager will push to the queue a string of the following format:
+	<LIST command result>:--<server-addr>::-<server-port>:::<id>
+	This way, each worker thread knows to what host it should make the connection
+2. A LIST command to a content-server will return only paths to files (and not directories).
+	This means that we can fetch these files directly

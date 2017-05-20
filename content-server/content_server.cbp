@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6"/>
+	<Project>
+		<Option title="content_server"/>
+		<Option makefile_is_custom="1"/>
+		<Option compiler="gcc"/>
+		<Option virtualFolders="CMake Files\;"/>
+		<Build>
+			<Target title="all">
+				<Option working_dir="/home/kostas/CLionProjects/content-server"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/make -j4 -f &quot;/home/kostas/CLionProjects/content-server/Makefile&quot;  VERBOSE=1 all"/>
+					<CompileFile command="/usr/bin/make -j4 -f &quot;/home/kostas/CLionProjects/content-server/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -j4 -f &quot;/home/kostas/CLionProjects/content-server/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -j4 -f &quot;/home/kostas/CLionProjects/content-server/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="rebuild_cache">
+				<Option working_dir="/home/kostas/CLionProjects/content-server"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/make -j4 -f &quot;/home/kostas/CLionProjects/content-server/Makefile&quot;  VERBOSE=1 rebuild_cache"/>
+					<CompileFile command="/usr/bin/make -j4 -f &quot;/home/kostas/CLionProjects/content-server/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -j4 -f &quot;/home/kostas/CLionProjects/content-server/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -j4 -f &quot;/home/kostas/CLionProjects/content-server/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="edit_cache">
+				<Option working_dir="/home/kostas/CLionProjects/content-server"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/make -j4 -f &quot;/home/kostas/CLionProjects/content-server/Makefile&quot;  VERBOSE=1 edit_cache"/>
+					<CompileFile command="/usr/bin/make -j4 -f &quot;/home/kostas/CLionProjects/content-server/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -j4 -f &quot;/home/kostas/CLionProjects/content-server/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -j4 -f &quot;/home/kostas/CLionProjects/content-server/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="content_server">
+				<Option output="/home/kostas/CLionProjects/content-server/content_server" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/home/kostas/CLionProjects/content-server"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add directory="/usr/lib/gcc/x86_64-pc-linux-gnu/6.3.1/../../../../include/c++/6.3.1"/>
+					<Add directory="/usr/lib/gcc/x86_64-pc-linux-gnu/6.3.1/../../../../include/c++/6.3.1/x86_64-pc-linux-gnu"/>
+					<Add directory="/usr/lib/gcc/x86_64-pc-linux-gnu/6.3.1/../../../../include/c++/6.3.1/backward"/>
+					<Add directory="/usr/lib/gcc/x86_64-pc-linux-gnu/6.3.1/include"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="/usr/lib/gcc/x86_64-pc-linux-gnu/6.3.1/include-fixed"/>
+					<Add directory="/usr/include"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/make -j4 -f &quot;/home/kostas/CLionProjects/content-server/Makefile&quot;  VERBOSE=1 content_server"/>
+					<CompileFile command="/usr/bin/make -j4 -f &quot;/home/kostas/CLionProjects/content-server/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -j4 -f &quot;/home/kostas/CLionProjects/content-server/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -j4 -f &quot;/home/kostas/CLionProjects/content-server/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="content_server/fast">
+				<Option output="/home/kostas/CLionProjects/content-server/content_server" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/home/kostas/CLionProjects/content-server"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add directory="/usr/lib/gcc/x86_64-pc-linux-gnu/6.3.1/../../../../include/c++/6.3.1"/>
+					<Add directory="/usr/lib/gcc/x86_64-pc-linux-gnu/6.3.1/../../../../include/c++/6.3.1/x86_64-pc-linux-gnu"/>
+					<Add directory="/usr/lib/gcc/x86_64-pc-linux-gnu/6.3.1/../../../../include/c++/6.3.1/backward"/>
+					<Add directory="/usr/lib/gcc/x86_64-pc-linux-gnu/6.3.1/include"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="/usr/lib/gcc/x86_64-pc-linux-gnu/6.3.1/include-fixed"/>
+					<Add directory="/usr/include"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/make -j4 -f &quot;/home/kostas/CLionProjects/content-server/Makefile&quot;  VERBOSE=1 content_server/fast"/>
+					<CompileFile command="/usr/bin/make -j4 -f &quot;/home/kostas/CLionProjects/content-server/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -j4 -f &quot;/home/kostas/CLionProjects/content-server/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -j4 -f &quot;/home/kostas/CLionProjects/content-server/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+		</Build>
+		<Unit filename="/home/kostas/CLionProjects/content-server/cmd_parser.cpp">
+			<Option target="content_server"/>
+		</Unit>
+		<Unit filename="/home/kostas/CLionProjects/content-server/cmd_parser.h">
+			<Option target="content_server"/>
+		</Unit>
+		<Unit filename="/home/kostas/CLionProjects/content-server/constants.h">
+			<Option target="content_server"/>
+		</Unit>
+		<Unit filename="/home/kostas/CLionProjects/content-server/content_server.cpp">
+			<Option target="content_server"/>
+		</Unit>
+		<Unit filename="/home/kostas/CLionProjects/content-server/content_server.h">
+			<Option target="content_server"/>
+		</Unit>
+		<Unit filename="/home/kostas/CLionProjects/content-server/hash_table.cpp">
+			<Option target="content_server"/>
+		</Unit>
+		<Unit filename="/home/kostas/CLionProjects/content-server/hash_table.h">
+			<Option target="content_server"/>
+		</Unit>
+		<Unit filename="/home/kostas/CLionProjects/content-server/help_func.cpp">
+			<Option target="content_server"/>
+		</Unit>
+		<Unit filename="/home/kostas/CLionProjects/content-server/help_func.h">
+			<Option target="content_server"/>
+		</Unit>
+		<Unit filename="/home/kostas/CLionProjects/content-server/main.cpp">
+			<Option target="content_server"/>
+		</Unit>
+		<Unit filename="/home/kostas/CLionProjects/content-server/my_string.cpp">
+			<Option target="content_server"/>
+		</Unit>
+		<Unit filename="/home/kostas/CLionProjects/content-server/my_string.h">
+			<Option target="content_server"/>
+		</Unit>
+		<Unit filename="/home/kostas/CLionProjects/content-server/my_vector.cpp">
+			<Option target="content_server"/>
+		</Unit>
+		<Unit filename="/home/kostas/CLionProjects/content-server/my_vector.h">
+			<Option target="content_server"/>
+		</Unit>
+		<Unit filename="/home/kostas/CLionProjects/content-server/CMakeLists.txt">
+			<Option virtualFolder="CMake Files\"/>
+		</Unit>
+	</Project>
+</CodeBlocks_project_file>
