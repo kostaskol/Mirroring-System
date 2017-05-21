@@ -6,3 +6,4 @@ content-serv
 mirror-serv
 */*/*.o
 */*/*.gch
+output/*
