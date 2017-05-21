@@ -19,11 +19,14 @@ private:
             *_empty_mtx, *_done_mtx;
     pthread_cond_t *_cond;
     pthread_t *_tid;
+	my_vector<my_string> *_down_serv;
 
 public:
     mirror_manager(my_vector<my_string> details, int id, queue<my_string> *q,
                    pthread_mutex_t *e_mtx, pthread_mutex_t *f_mtx,
-                   pthread_mutex_t *rw_mtx, pthread_mutex_t *d_mtx, pthread_cond_t *cond, pthread_t *tid);
+                   pthread_mutex_t *rw_mtx, pthread_mutex_t *d_mtx, 
+				   pthread_cond_t *cond, pthread_t *tid, 
+				   my_vector<my_string> *down);
 
     bool init();
 

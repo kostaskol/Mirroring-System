@@ -67,32 +67,31 @@ void content_server::run() {
             exit(-1);
         }
 
-        int pid = fork();
-        if (pid == 0) {
-            char *buffer = new char[1024];
-            ssize_t read = recv(client_fd, buffer, 1023, 0);
-            buffer[read] = '\0';
-            my_string msg = buffer;
-            cout << "Got message: " << msg << endl;
-            my_vector<my_string> cmd = msg.split((char *) ":");
-            try {
-                if (cmd.at(0) == "LIST") {
-                    _do_list(client_fd);
-                    try {
-                        _h_table.insert_key(cmd.at(1), cmd.at(2).to_int());
-                    } catch (runtime_error &e) {
-                        cerr << "User hasn't provided an ID or a delay" << endl;
-                    }
-                } else if (cmd.at(0) == "FETCH") {
-                    _do_fetch(client_fd, cmd.at(1), cmd.at(2));
+        char *buffer = new char[1024];
+        ssize_t read = recv(client_fd, buffer, 1023, 0);
+        buffer[read] = '\0';
+        my_string msg = buffer;
+        cout << "Got message: " << msg << endl;
+        my_vector<my_string> cmd = msg.split((char *) ":");
+        try {
+            if (cmd.at(0) == "LIST") {
+                try {
+					cout << "Inserting delay " << cmd.at(2) << " for id " << cmd.at(1) << endl;
+                    _h_table.insert_key(cmd.at(1), cmd.at(2).to_int());
+                } catch (runtime_error &e) {
+                    cerr << "User hasn't provided an ID or a delay" << endl;
                 }
-            } catch (runtime_error &e) {
-                cout << "Caught exception!" << endl;
+				_do_list(client_fd);
+				
+            } else if (cmd.at(0) == "FETCH") {
+                _do_fetch(client_fd, cmd.at(1), cmd.at(2));
             }
-
-            cout << "Closing the connnection!" << endl;
-            close(client_fd);
+        } catch (runtime_error &e) {
+            cout << "Caught exception!" << endl;
         }
+
+        cout << "Closing the connnection!" << endl;
+        close(client_fd);
     } while(true);
 }
 
@@ -100,7 +99,6 @@ void content_server::_do_list(int clientfd) {
     my_vector<my_string> list;
     cout << "Looking in path " << _path << endl;
     _get_list(_path, &list);
-    cout << "There are " << list.size() << " files in this directory" << endl;
     // Send the number of files to the client
     hf::send_num_blocks(clientfd, (int) list.size());
     hf::recv_ok(clientfd);
@@ -115,7 +113,6 @@ void content_server::_do_list(int clientfd) {
         uint offs = 0;
         // For each part of the file name
         // send at most BLOCK_STR_SIZE characters
-        cout << "Name will be " << fname.length() << " bytes" << endl;
         cout << "Sending name " << fname << endl;
         for (int file_part = 0; file_part < loops + 1; file_part++) {
             int curr_len = (fname.length() - offs) > BLOCK_STR_SIZE
@@ -152,7 +149,7 @@ void content_server::_do_fetch(int clientfd, my_string path, my_string id) {
     hf::send_num_blocks(clientfd, (int) list.size());
     hf::recv_ok(clientfd);
 
-    for (int file = 0; file < list.size(); file++) {
+    for (int file = 0; file < (int) list.size(); file++) {
         // Send the name of each file
         my_string fname = list.at((int) file);
         int loops = (int) fname.length() / BLOCK_STR_SIZE;
@@ -183,14 +180,18 @@ void content_server::_do_fetch(int clientfd, my_string path, my_string id) {
 
         hf::send_num_blocks(clientfd, blocks);
         hf::recv_ok(clientfd);
-
+		
+		cout << "Sending file " << fname << endl;
         for (int block = 0; block < blocks + 1; block++) {
             char *buffer = new char[BLOCK_RAW_SIZE];
             inp.read(buffer, BLOCK_RAW_SIZE);
             send(clientfd, buffer, BLOCK_RAW_SIZE, 0);
             hf::recv_ok(clientfd);
-            cout << "Sent part " << block + 1 << "/" << blocks + 1 << " for file " << fname << endl;
-
+			if (block == blocks) {
+				cout << "\rPart [" << block + 1 << "/" << blocks + 1 << "]" << endl;
+			} else {
+				cout << "\rPart [" << block + 1 << "/" << blocks + 1 << "]" << flush;
+			}
         }
 
     }

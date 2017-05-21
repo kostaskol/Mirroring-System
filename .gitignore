@@ -5,3 +5,4 @@ mirror-init
 content-serv
 mirror-serv
 */*/*.o
+*/*/*.gch

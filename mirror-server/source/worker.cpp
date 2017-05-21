@@ -101,7 +101,9 @@ void worker::run() {
             _make_con(addr, port);
             // We now have the address and port of the server
             // and the requested path
-            _fetch(path, addr, port, id);
+            if (!_fetch(path, addr, port, id)) {
+				cout << "Error!" << endl;
+			}
             // We don't need thread safety on _q->empty
             // since it performs a read-only operation
         }
@@ -127,6 +129,10 @@ bool worker::_fetch(my_string path, my_string addr, int port, int id) {
     // Receive amount of files that will be transfered
     char *buffer = new char[1024];
     ssize_t read = recv(_sockfd, buffer, 1023, 0);
+	if (read == 0) {
+		cout << "Remote Server has closed the connection!" << endl;
+		return false;
+	}
     buffer[read] = '\0';
     my_string len_str = buffer;
     delete[] buffer;

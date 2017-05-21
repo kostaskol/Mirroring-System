@@ -41,7 +41,6 @@ namespace hf {
         int overall = 0;
         my_string complete_buf = "";
         int max_bytes = max > 1023 ? 1023 : max;
-        cout << "File name will be " << max << " bytes" << endl;
         do {
             char *buf = new char[1024];
             max_bytes -= overall;

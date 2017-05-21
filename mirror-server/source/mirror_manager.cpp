@@ -16,15 +16,17 @@ mirror_manager::mirror_manager(my_vector<my_string> details, int id,
                                queue<my_string> *q, pthread_mutex_t *e_mtx,
                                pthread_mutex_t *f_mtx, pthread_mutex_t *rw_mtx,
                                pthread_mutex_t *d_mtx, pthread_cond_t *cond,
-                               pthread_t *tid) {
+                               pthread_t *tid, my_vector<my_string> *down) {
     _id = id;
-    cout << "Got vector: " << endl;
-    details.print();
     _addr = details.at(CS_ADDR);
     cout << "Address is: " << _addr << endl;
     _port = details.at(CS_PORT).to_int();
     _path = details.at(CS_DIR);
     _delay = details.at(CS_DELAY).to_int();
+	cout << "Address " << _addr << endl;
+	cout << "Port " << _port << endl;
+	cout << "Path " << _path << endl;
+	cout << "Delay " << _delay << endl;
     _init = false;
     _q = q;
     _rw_mtx = rw_mtx;
@@ -33,6 +35,7 @@ mirror_manager::mirror_manager(my_vector<my_string> details, int id,
     _done_mtx = d_mtx;
     _cond = cond;
     _tid = tid;
+	_down_serv = down;
 }
 
 bool mirror_manager::init() {
@@ -50,6 +53,10 @@ bool mirror_manager::init() {
     server = gethostbyname(_addr.c_str());
     if (server == nullptr) {
         cerr << "No such host: " << _addr << endl;
+		my_string tmp = _addr;
+		tmp += ":";
+		tmp += _port;
+		_down_serv->push(tmp);
         close(_sockfd);
         return false;
     }
@@ -97,7 +104,7 @@ void mirror_manager::run() {
         // We check to make sure that the path returned from
         // the content-server matched the one requested by the user
         if (!fname.starts_with(_path)) {
-            cout << "File name " << fname << " doesn't start with " << _path << endl;
+            // cout << "File name " << fname << " doesn't start with " << _path << endl;
             continue;
         }
 
@@ -109,20 +116,19 @@ void mirror_manager::run() {
         full_name += ":";
         full_name += _id;
         cout << "Pushing file " << fname << " to queue" << endl;
-        cout << "MirrorServer #" << _id << ": Waiting on full_mtx" << endl;
+        //cout << "MirrorServer #" << _id << ": Waiting on full_mtx" << endl;
         pthread_mutex_lock(_full_mtx);
-        cout << "MirrorServer #" << _id << ": Waiting on rw_mtx" << endl;
+        //cout << "MirrorServer #" << _id << ": Waiting on rw_mtx" << endl;
         pthread_mutex_lock(_rw_mtx);
-        cout << "MirrorServer #" << _id << ": Pushing to queue" << endl;
         _q->push(full_name);
         // If this was the last item that could be added to the queue
         // we
         if (_q->full()) pthread_mutex_lock(_full_mtx);
         else pthread_mutex_unlock(_full_mtx);
         // We unlock the empty mutex when we push something onto the queue
-        cout << "MirrorServer #" << _id << ": Unlocking rw_mtx" << endl;
+        //cout << "MirrorServer #" << _id << ": Unlocking rw_mtx" << endl;
         pthread_mutex_unlock(_rw_mtx);
-        cout << "MirrorServer #" << _id << ": Unlocking empty_mtx" << endl;
+        //cout << "MirrorServer #" << _id << ": Unlocking empty_mtx" << endl;
         pthread_mutex_unlock(_empty_mtx);
     }
 
