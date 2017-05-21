@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <cstring>
 #include <fstream>
+#include <stdexcept>
 
 using namespace std;
 

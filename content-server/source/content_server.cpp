@@ -8,6 +8,7 @@
 #include <arpa/inet.h>
 #include <fstream>
 #include <dirent.h>
+#include <stdexcept>
 #include "constants.h"
 #include "content_server.h"
 #include "help_func.h"

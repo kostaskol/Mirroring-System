@@ -25,7 +25,7 @@ private:
     pthread_mutex_t _rw_mtx, _done_mtx, _full_mtx, _empty_mtx;
     pthread_cond_t _cond;
     pthread_t _tid;
-	my_vector<my_string> dserv;
+	my_vector<my_string> _down_serv;
 
     void _mtx_init();
 public:

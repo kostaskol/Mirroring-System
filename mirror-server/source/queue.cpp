@@ -2,6 +2,7 @@
 #include <iostream>
 #include "constants.h"
 #include "my_string.h"
+#include <stdexcept>
 
 using namespace std;
 

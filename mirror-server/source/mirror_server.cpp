@@ -6,6 +6,7 @@
 #include <cstring>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <cmath>
 
 using namespace std;
 
@@ -101,12 +102,17 @@ void mirror_server::run() {
     for (int i = 0; i < (int) vec.size(); i++) {
         my_vector<my_string> tmp_vec = vec.at(i);
         mirror_manager *man = new mirror_manager(tmp_vec, i, &_data_queue, &_empty_mtx,
-                &_full_mtx, &_rw_mtx, &_done_mtx, &_cond, &_tid);
+                &_full_mtx, &_rw_mtx, &_done_mtx, &_cond, &_tid, &_down_serv);
         pthread_attr_t attr;
         pthread_attr_init(&attr);
         pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
         pthread_create(&_managers[i], &attr, start_manager, man);
     }
+	
+	if (_down_serv.size() != 0) {
+		cout << "Some Servers where down: " << endl;
+		_down_serv.print();
+	}
 
     // Workers will loop until done becomes true
     bool done = false;
@@ -121,7 +127,7 @@ void mirror_server::run() {
     }
 
     int count = 0;
-    for (count; count < vec.size(); count++) {
+    for (; count < (int) vec.size(); count++) {
         pthread_join(_managers[count], nullptr);
     }
 
@@ -145,10 +151,14 @@ void mirror_server::run() {
         delete st;
     }
 
-    my_string msg = "OK ";
+    my_string msg = "OK:";
     msg += files;
-    msg += " ";
+    msg += ":";
     msg += bytes;
+	msg += ":";
+	msg += (bytes / files);
+	msg += ":";
+	msg += ((int) sqrt(bytes / files));
     msg += ";";
     send(clientfd, msg.c_str(), msg.length(), 0);
     close(clientfd);

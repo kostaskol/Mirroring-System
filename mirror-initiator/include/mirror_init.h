@@ -5,6 +5,11 @@
 #include "my_string.h"
 #include "cmd_parser.h"
 
+/**
+ *	Mirror Initiator class which handles all of the initiator's operations
+ * (Send the data to the Mirror Server, await for its response and print 
+ *  that data to the user)
+ */
 class mirror_init {
 private:
     my_vector<my_vector<my_string>> _cservers;
