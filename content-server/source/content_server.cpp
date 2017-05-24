@@ -9,6 +9,7 @@
 #include <fstream>
 #include <dirent.h>
 #include <stdexcept>
+#include <signal.h>
 #include "content_server.h"
 #include "content_manager.h"
 
@@ -21,6 +22,7 @@ content_server::content_server(cmd_parser *parser) {
 	_thread_num = parser->get_thread_num();
     _sockfd = 0;
     _init = false;
+	_debug = parser->is_debug();
 	
 	pthread_mutex_init(&_q_mtx, nullptr);
 	pthread_mutex_init(&_h_mtx, nullptr);
@@ -57,6 +59,7 @@ void content_server::init() {
 }
 
 void content_server::run() {
+	signal(SIGPIPE, SIG_IGN);
     if (!_init) {
         cout << "Content Server was not initialised. Exiting.." << endl;
         exit(-1);
@@ -73,7 +76,8 @@ void content_server::run() {
 	pthread_t *tids = new pthread_t[_thread_num];
 	for (int i = 0; i < _thread_num; i++) {
 		content_manager *man = new content_manager(&_q_mtx, &_h_mtx, &_e_mtx,
-							&_f_mtx, &_stp_mtx, &_queue, &_h_table, _path, &stop);
+							&_f_mtx, &_stp_mtx, &_queue, &_h_table, _path, 
+							&stop, _debug);
 							
 		pthread_attr_t attr;
 		pthread_attr_init(&attr);
@@ -84,7 +88,7 @@ void content_server::run() {
 	// have 5 threads that will all listen to this socket and they will all 
 	// handle the requests (no need for a queue) 
 	// Branch and try
-    do {
+	do {
         int client_fd;
         socklen_t len = sizeof(struct sockaddr_in);
         if ((client_fd = accept(_sockfd, (sockaddr *) &client, &len)) < 0) {

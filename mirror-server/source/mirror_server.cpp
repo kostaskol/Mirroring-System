@@ -20,14 +20,14 @@ mirror_server::mirror_server(cmd_parser *args) {
     }
     _workers = new pthread_t[_worker_num];
     _mtx_init();
-    pthread_cond_init(&_cond, nullptr);
 }
 
 void mirror_server::_mtx_init() {
     if (pthread_mutex_init(&_rw_mtx, nullptr)
             || pthread_mutex_init(&_done_mtx, nullptr)
             || pthread_mutex_init(&_full_mtx, nullptr)
-            || pthread_mutex_init(&_empty_mtx, nullptr)) {
+            || pthread_mutex_init(&_empty_mtx, nullptr)
+			|| pthread_cond_init(&_cond, nullptr)) {
         cerr << "Mutex creation failed. Exiting..." << endl;
         exit(-1);
     }
@@ -64,108 +64,113 @@ void mirror_server::init() {
 
 void mirror_server::run() {
     sockaddr_in client;
-    socklen_t len = sizeof(struct sockaddr_in);
-    int clientfd;
-    if ((clientfd = accept(_sockfd, (sockaddr *) &client, &len)) < 0) {
-        perror("accept");
-        exit(-1);
-    }
+	do {
+	    socklen_t len = sizeof(struct sockaddr_in);
+		int clientfd;
+	    if ((clientfd = accept(_sockfd, (sockaddr *) &client, &len)) < 0) {
+	        perror("accept");
+	        exit(-1);
+	    }
 
-    char *buffer = new char[1024];
-    ssize_t read = recv(clientfd, buffer, 1023, 0);
-    buffer[read] = '\0';
+	    char *buffer = new char[1024];
+	    ssize_t read = recv(clientfd, buffer, 1023, 0);
+	    buffer[read] = '\0';
 
-    send(clientfd, "OK", 2, 0);
-    int vecs = atoi(buffer);
+	    send(clientfd, "OK", 2, 0);
+	    int vecs = atoi(buffer);
 
-    delete[] buffer;
-    my_vector<my_vector<my_string>> vec;
-    for (int i = 0; i < vecs; i++) {
-        my_vector<my_string> tmp;
-        for (int j = 0; j < 4; j++) {
-            buffer = new char[1024];
-            read = recv(clientfd, buffer, 1023, 0);
-            buffer[read] = '\0';
-            send(clientfd, "OK", 2, 0);
-            tmp.push(buffer);
-            delete[] buffer;
+	    delete[] buffer;
+	    my_vector<my_vector<my_string>> vec;
+	    for (int i = 0; i < vecs; i++) {
+	        my_vector<my_string> tmp;
+	        for (int j = 0; j < 4; j++) {
+	            buffer = new char[1024];
+	            read = recv(clientfd, buffer, 1023, 0);
+	            buffer[read] = '\0';
+	            send(clientfd, "OK", 2, 0);
+	            tmp.push(buffer);
+	            delete[] buffer;
 
-        }
-        vec.push(tmp);
-    }
+	        }
+	        vec.push(tmp);
+	    }
 
 
-    pthread_mutex_unlock(&_rw_mtx);
-    pthread_mutex_unlock(&_full_mtx);
-    pthread_mutex_lock(&_empty_mtx);
-    _managers = new pthread_t[vec.size()];
-    for (int i = 0; i < (int) vec.size(); i++) {
-        my_vector<my_string> tmp_vec = vec.at(i);
-        mirror_manager *man = new mirror_manager(tmp_vec, i, &_data_queue, &_empty_mtx,
-                &_full_mtx, &_rw_mtx, &_done_mtx, &_cond, &_tid, &_down_serv);
-        pthread_attr_t attr;
-        pthread_attr_init(&attr);
-        pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
-        pthread_create(&_managers[i], &attr, start_manager, man);
-    }
-	
-	if (_down_serv.size() != 0) {
-		cout << "Some Servers where down: " << endl;
-		_down_serv.print();
-	}
+	    pthread_mutex_unlock(&_rw_mtx);
+	    pthread_mutex_unlock(&_full_mtx);
+	    pthread_mutex_lock(&_empty_mtx);
+	    _managers = new pthread_t[vec.size()];
+	    for (int i = 0; i < (int) vec.size(); i++) {
+	        my_vector<my_string> tmp_vec = vec.at(i);
+	        mirror_manager *man = new mirror_manager(tmp_vec, i, &_data_queue, 
+				&_empty_mtx, &_full_mtx, &_rw_mtx, &_done_mtx, &_cond, 
+				&_tid, &_down_serv);
+	        pthread_attr_t attr;
+	        pthread_attr_init(&attr);
+	        pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
+	        pthread_create(&_managers[i], &attr, start_manager, man);
+	    }
+		
+		if (_down_serv.size() != 0) {
+			cout << "Some Servers where down: " << endl;
+			_down_serv.print();
+		}
 
-    // Workers will loop until done becomes true
-    bool done = false;
+	    // Workers will loop until done becomes true
+	    bool done = false;
 
-    for (int i = 0; i < _worker_num; i++) {
-        worker *w = new worker(&_data_queue, &_empty_mtx, &_full_mtx,
-                               &_rw_mtx, _outp_path, &done);
-        pthread_attr_t attr;
-        pthread_attr_init(&attr);
-        pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
-        pthread_create(&_workers[i], &attr, start_worker, w);
-    }
+	    for (int i = 0; i < _worker_num; i++) {
+	        worker *w = new worker(&_data_queue, &_empty_mtx, &_full_mtx,
+	                               &_rw_mtx, _outp_path, &done);
+	        pthread_attr_t attr;
+	        pthread_attr_init(&attr);
+	        pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
+	        pthread_create(&_workers[i], &attr, start_worker, w);
+	    }
 
-    int count = 0;
-    for (; count < (int) vec.size(); count++) {
-        pthread_join(_managers[count], nullptr);
-    }
+	    for (int count = 0; count < (int) vec.size(); count++) {
+	        pthread_join(_managers[count], nullptr);
+	    }
 
-    cout << "DEBUG --::-- All mirrorManagers died" << endl;
-    done = true;
+	    cout << "DEBUG --::-- All mirrorManagers died" << endl;
+	    done = true;
 
-    cout << "DEBUG --::-- Unblocking and joining worker threads!" << endl;
-    // Wherever workers may be stuck, we unblock them
-    for (int i = 0; i < _worker_num; i++) {
-        pthread_mutex_unlock(&_empty_mtx);
-        pthread_mutex_unlock(&_rw_mtx);
-    }
-    int bytes = 0, files = 0;
-    for (int i = 0; i < _worker_num; i++) {
-        void *tmp;
-        pthread_join(_workers[i], &tmp);
-        cout << "DEBUG --::-- worker thread #" << i << " died" << endl;
-        stats *st = (stats *) tmp;
-        bytes += st->bytes;
-        files += st->files;
-        delete st;
-    }
+	    cout << "DEBUG --::-- Unblocking and joining worker threads!" << endl;
+	    // Wherever workers may be stuck, we unblock them
+	    for (int i = 0; i < _worker_num; i++) {
+	        pthread_mutex_unlock(&_empty_mtx);
+	        pthread_mutex_unlock(&_rw_mtx);
+	    }
+	    int bytes = 0, files = 0;
+	    for (int i = 0; i < _worker_num; i++) {
+	        void *tmp;
+	        pthread_join(_workers[i], &tmp);
+	        cout << "DEBUG --::-- worker thread #" << i << " died" << endl;
+	        stats *st = (stats *) tmp;
+	        bytes += st->bytes;
+	        files += st->files;
+	        delete st;
+	    }
 
-    my_string msg = "OK:";
-    msg += files;
-    msg += ":";
-    msg += bytes;
-	msg += ":";
-	msg += (bytes / files);
-	msg += ":";
-	msg += ((int) sqrt(bytes / files));
-    msg += ";";
-    send(clientfd, msg.c_str(), msg.length(), 0);
-    close(clientfd);
-    close(_sockfd);
-
-    delete[] _workers;
-    delete[] _managers;
+	    my_string msg = "OK:";
+	    msg += files;
+	    msg += ":";
+	    msg += bytes;
+		msg += ":";
+		if (files != 0)
+			msg += (bytes / files);
+		else 
+			msg += 0;
+		msg += ":";
+		if (files != 0)
+			msg += ((int) sqrt(bytes / files));
+		else 
+			msg += 0;
+	    msg += ";";
+	    send(clientfd, msg.c_str(), msg.length(), 0);
+	    close(clientfd);
+		cout << "Session ended" << endl;
+	} while (true);
 }
 
 void *start_manager(void *arg) {
@@ -178,7 +183,7 @@ void *start_manager(void *arg) {
 
 void *start_worker(void *arg) {
     worker *w = (worker *) arg;
-    w->run();
+    stats *statistics = w->run();
     delete w;
-    pthread_exit(0);
+    pthread_exit(statistics);
 }

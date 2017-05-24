@@ -26,7 +26,7 @@ worker::worker(queue<my_string> *q, pthread_mutex_t *e_mtx,
 }
 
 
-void worker::run() {
+stats *worker::run() {
     bool end = false;
     cout << "DEBUG --::-- Worker " << pthread_self() << " started!" << endl;
     do {
@@ -78,12 +78,14 @@ void worker::run() {
         // and stop once we see an empty queue
         cout << "Worker #" << pthread_self() << " locking rw (done)" << endl;
         pthread_mutex_lock(_rw_mtx);
-        if (_q->empty()) end = true;
-        details = _q->pop();
-        // if (_q->empty()) pthread_mutex_lock(_empty_mtx);
-        // else pthread_mutex_unlock(_empty_mtx);
-        cout << "Worker #" << pthread_self() << ": Unlocking rw_mtx (done)" << endl;
-        pthread_mutex_unlock(_rw_mtx);
+		{
+	        if (_q->empty()) end = true;
+	        details = _q->pop();
+	        // if (_q->empty()) pthread_mutex_lock(_empty_mtx);
+	        // else pthread_mutex_unlock(_empty_mtx);
+	        cout << "Worker #" << pthread_self() << ": Unlocking rw_mtx (done)" << endl;
+        }
+		pthread_mutex_unlock(_rw_mtx);
 
         if (!end) {
             my_string addr, path;
@@ -101,6 +103,7 @@ void worker::run() {
             if (!_fetch(path, addr, port, id)) {
 				cout << "Error!" << endl;
 			}
+			close(_sockfd);
             // We don't need thread safety on _q->empty
             // since it performs a read-only operation
         }
@@ -112,7 +115,7 @@ void worker::run() {
 
     cout << "Worker #" << pthread_self() << " dying" << endl;
 
-    pthread_exit(statistics);
+    return statistics;
 }
 
 bool worker::_fetch(my_string path, my_string addr, int port, int id) {
@@ -135,7 +138,9 @@ bool worker::_fetch(my_string path, my_string addr, int port, int id) {
     delete[] buffer;
     int len = len_str.to_int();
     if (len == 0) {
-        cout << "Worker #" << pthread_self() << path << ": No such file or directory at remote server " << addr << ":" << port << endl;
+        cout << "Worker #" << pthread_self() << path << ": No such file" 
+			 << " or directory at remote server " << addr << ":" << port << endl;
+		
         return false;
     }
     hf::send_ok(_sockfd);
@@ -154,6 +159,9 @@ bool worker::_fetch(my_string path, my_string addr, int port, int id) {
         if (fname[0] != '/') {
             tmp_name += "/";
         }
+		// fname.replace(' ', '_');
+		my_vector<my_string> correcter = fname.split(" ");
+		fname = correcter.join('_');
         my_string tmp = fname;
         fname = tmp_name;
         fname += tmp;

@@ -17,6 +17,8 @@ private:
 	pthread_mutex_t _q_mtx, _h_mtx, _f_mtx, _e_mtx, _stp_mtx;
 	
 	int _thread_num;
+	
+	bool _debug;
 
     hash_table<int> _h_table;
 public:

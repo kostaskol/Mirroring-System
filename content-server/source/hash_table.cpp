@@ -27,8 +27,12 @@ void hash_table<T>::insert_key(my_string key, T ent) {
     }
 
 
-    _keys[index].push(key);
-    _entries[index].push(ent);
+	if (!_keys[index].in(key)) {
+		_keys[index].push(key);
+		_entries[index].push(ent);
+	} else {
+		set_key(key, ent);
+	}
 }
 
 template <typename T>
@@ -61,8 +65,8 @@ void hash_table<T>::set_key(my_string key, T ent) {
     my_vector<my_string> tmp_string = _keys[index];
     for (size_t i = 0; i < tmp_string.size(); i++) {
         if (tmp_string.at(i) == key) {
-            _entries[index].set_at(i, ent);
-            return;
+        	_entries[index].set_at(i, ent);
+        	return;
         }
     }
 }

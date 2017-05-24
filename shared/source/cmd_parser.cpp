@@ -27,30 +27,30 @@ void cmd_parser::parse(int argc, char **argv) {
 
     switch (_mode) {
         case MODE_CS: {
-            if (argc != 7)
+            if (argc != 7 && argc != 8)
                 err("Invalid number of command line arguments", argv[0]);
-            for (int arg = 1; arg < argc; arg += 2) {
+            for (int arg = 1; arg < argc; arg++) {
                 my_string argument = argv[arg];
                 if (argument == "-p") {
                     if (arg + 1 < argc) {
-                        _port = atoi(argv[arg + 1]);
+                        _port = atoi(argv[++arg]);
                     } else {
                         err("Error while parsing command line arguments", argv[0]);
                     }
                 } else if (argument == "-d") {
                     if (arg + 1 < argc) {
-                        _path_name = argv[arg + 1];
+                        _path_name = argv[++arg];
                     } else {
                         err("Error while parsing command line arguments", argv[0]);
                     }
                 } else if (argument == "-w") {
 					if (arg + 1 < argc) {
-						cout << "Cmd args: Parsed -w ";
-						_t_num = atoi(argv[arg + 1]);
-						cout << _t_num << endl;
+						_t_num = atoi(argv[++arg]);
 					} else {
 						err("Error while parsing command line arguments", argv[0]);
 					}
+				} else if (argument == "--debug") {
+					_debug = true;
 				} else {
                     my_string err_msg = "Unknown command line argument ";
                     err_msg += argv[1];
@@ -61,26 +61,26 @@ void cmd_parser::parse(int argc, char **argv) {
         }
 
         case MODE_MI: {
-          if (argc != 7) {
+          if (argc != 7 && argc != 8) {
             err("Invalid number of command line arguments", argv[0]);
           }
-            for (int arg = 1; arg < argc; arg += 2) {
+            for (int arg = 1; arg < argc; arg++) {
                 my_string argument = argv[arg];
                 if (argument == "-n") {
                     if (arg + 1 < argc) {
-                        _address = argv[arg + 1];
+                        _address = argv[++arg];
                     } else {
                         err("Error while parsing command line arguments", argv[0]);
                     }
                 } else if (argument == "-p") {
                     if (arg + 1 < argc) {
-                        _port = atoi(argv[arg + 1]);
+                        _port = atoi(argv[++arg]);
                     } else {
                         err("Error while parsing command line arguments", argv[0]);
                     }
                 } else if (argument == "-s") {
                     if (arg + 1 < argc) {
-                        my_string tmp_str = argv[arg + 1];
+                        my_string tmp_str = argv[++arg];
                         my_vector<my_string> com_vec = tmp_str.split((char *) ",");
                         for (int i = 0; i < (int) com_vec.size(); i++) {
                             _cserver_details.push(com_vec.at(i).split((char *)":"));
@@ -88,7 +88,9 @@ void cmd_parser::parse(int argc, char **argv) {
                     } else {
                         err("Error while parsing command line arguments", argv[0]);
                     }
-                } else {
+                } else if (argument == "--debug") {
+					_debug = true;
+				} else {
                     my_string err_msg = "Unknown command line argument ";
                     err_msg += argv[1];
                     err(err_msg, argv[0]);
@@ -98,27 +100,29 @@ void cmd_parser::parse(int argc, char **argv) {
         }
 
         case MODE_MS: {
-            for (int arg = 1; arg < argc; arg += 2) {
+            for (int arg = 1; arg < argc; arg++) {
                 my_string argument = argv[arg];
                 if (argument == "-p") {
                     if (arg + 1 < argc) {
-                        _port = atoi(argv[arg + 1]);
+                        _port = atoi(argv[++arg]);
                     } else {
                         err("Error while parsing command line arguments", argv[0]);
                     }
                 } else if (argument == "-m") {
                     if (arg + 1 < argc) {
-                        _outp_path = argv[arg + 1];
+                        _outp_path = argv[++arg];
                     } else {
                         err("Error while parsing command line arguments", argv[0]);
                     }
                 } else if (argument == "-w") {
                     if (arg + 1 < argc) {
-                        _t_num = atoi(argv[arg + 1]);
+                        _t_num = atoi(argv[++arg]);
                     } else {
                         err("Error while parsing command line arguments", argv[0]);
                     }
-                } else {
+                } else if (argument == "--debug") {
+					_debug = true;
+				} else {
                     my_string err_msg = "Unknown command line argument ";
                     err_msg += argv[1];
                     err(err_msg, argv[0]);
@@ -138,28 +142,39 @@ void cmd_parser::parse(int argc, char **argv) {
 void cmd_parser::_helper(char *exec_name) {
     cout << "Help for " << exec_name << endl;
     cout << "Valid options: " << endl;
+	cout << "--debug: Debug mode. Will output most of the operations " 
+		 << "as it's doing them" << endl;
     switch (_mode) {
         case MODE_MS: {
-            cout << "-p: Specifies the port that the server will be listening to" << endl;
-            cout << "-m: Specifies the directory name that the mirrored contents will be stored" << endl;
-            cout << "\t[Note] Only the last directory of the path will be created automatically." << endl;
+            cout << "-p: Specifies the port that the server will be" 
+				 << " listening to" << endl;
+            cout << "-m: Specifies the directory name that the mirrored " 
+				 << "contents will be stored" << endl;
+            cout << "\t[Note] Only the last directory of the path will be " 
+				 << "created automatically." << endl;
             cout << "-w: Specifies the number of worker threads";
             break;
         }
 
         case MODE_MI: {
             cout << "-n: Specifies the address of the MirrorServer" << endl;
-            cout << "-p: Specifies the port to which the MirrorServer is listening" << endl;
-            cout << "-s: Specifies the address, port, directory and delay of the ContentServers" << endl;
+            cout << "-p: Specifies the port to which the MirrorServer is " 
+				 << "listening" << endl;
+            cout << "-s: Specifies the address, port, directory and delay " 
+				 << "of the ContentServers" << endl;
             cout << "\t[Note] The format *must* be the following:" << endl;
-            cout << "\t\t<ContentServerAddress1>:<ContentServerPort1>:<Directory or filename1>,<Delay1>,"
-                    "<<ContentServerAddress2>:<ContentServerPort2>:<Directory or filename2>,<Delay2>,..." << endl;
+            cout << "\t\t<ContentServerAddress1>:<ContentServerPort1>:" 
+				 << "<Directory or filename1>,<Delay1>,"
+            	 << "<<ContentServerAddress2>:<ContentServerPort2>:" 
+				 << "<Directory or filename2>,<Delay2>,..." << endl;
             break;
         }
 
         case MODE_CS: {
-            cout << "-p: Specifies the port that the ContentServer should be listening to" << endl;
-            cout << "-d: Directory or Filename that the ContentServer will make available to *all* valid requests" << endl;
+            cout << "-p: Specifies the port that the ContentServer " 
+				 << "should be listening to" << endl;
+            cout << "-d: Directory or Filename that the ContentServer " 
+				 << "will make available to *all* valid requests" << endl;
 			cout << "-w: Number of open threads running" << endl;
             break;
         }
@@ -177,8 +192,12 @@ my_string cmd_parser::get_path_name() { return _path_name; }
 
 my_string cmd_parser::get_address() { return _address; }
 
-my_vector<my_vector<my_string>> cmd_parser::get_cserver_details() { return _cserver_details; }
+my_vector<my_vector<my_string>> cmd_parser::get_cserver_details() { 
+	return _cserver_details; 
+}
 
 my_string cmd_parser::get_outp_path() { return _outp_path; }
 
 int cmd_parser::get_thread_num() { return _t_num; }
+
+bool cmd_parser::is_debug() { return _debug; }

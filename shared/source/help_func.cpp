@@ -55,6 +55,7 @@ namespace hf {
     }
 
     my_string get_dir_path(my_string path) {
+		cout << "Dir path " << path << endl;
         my_vector<my_string> path_vec = path.split((char *) "/");
         path_vec.remove_at(path_vec.size() - 1);
         my_string tmp_path = path_vec.join('/');

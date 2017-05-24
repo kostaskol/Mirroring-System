@@ -21,13 +21,17 @@ public:
     virtual ~my_string();
 
     const char *c_str();
+	
+	std::string cpp_str();
 
     size_t length();
 
     void clear();
 
     my_vector<my_string> split(char *delim);
-
+	
+	my_vector<my_string> split(const char *delim);
+	
     my_string substr(int start, int length);
 
     int to_int();

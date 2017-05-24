@@ -63,6 +63,11 @@ my_string::~my_string() {
 
 const char *my_string::c_str() { return _str; }
 
+string my_string::cpp_str() { 
+	string str = _str;
+	return str;
+}
+
 size_t my_string::length() { return strlen(_str); }
 
 my_vector<my_string> my_string::split(char *delim) {
@@ -79,24 +84,22 @@ my_vector<my_string> my_string::split(char *delim) {
     }
 
     delete[] tmp_str;
-    /*
-    my_string tmp;
-    bool pushed = false;
-    for (size_t i = 0; i < _len - 1; i++) {
-        if (_str[i] != delim) {
-            tmp += _str[i];
-            pushed = false;
-        } else {
-            pushed = true;
-            list.push(tmp);
-            tmp = "";
-        }
+    return list;
+}
+
+my_vector<my_string> my_string::split(const char *delim) {
+	my_vector<my_string> list;
+
+    char *tmp_str = new char[strlen(_str) + 1];
+    strcpy(tmp_str, _str);
+    char *token = strtok(tmp_str, delim);
+
+    while (token != nullptr) {
+        list.push(token);
+        token = strtok(NULL, delim);
     }
 
-    if (!pushed) {
-        list.push(tmp);
-    }
-*/
+    delete[] tmp_str;
     return list;
 }
 
@@ -120,7 +123,7 @@ my_string my_string::substr(int start, int length) {
 }
 
 void my_string::replace(char old, char n) {
-    for (int i = 0; i < strlen(_str); i++) {
+    for (int i = 0; i < (int) strlen(_str); i++) {
         if (_str[i] == old)
             _str[i] = n;
     }

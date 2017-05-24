@@ -19,14 +19,9 @@ mirror_manager::mirror_manager(my_vector<my_string> details, int id,
                                pthread_t *tid, my_vector<my_string> *down) {
     _id = id;
     _addr = details.at(CS_ADDR);
-    cout << "Address is: " << _addr << endl;
     _port = details.at(CS_PORT).to_int();
     _path = details.at(CS_DIR);
     _delay = details.at(CS_DELAY).to_int();
-	cout << "Address " << _addr << endl;
-	cout << "Port " << _port << endl;
-	cout << "Path " << _path << endl;
-	cout << "Delay " << _delay << endl;
     _init = false;
     _q = q;
     _rw_mtx = rw_mtx;
@@ -144,5 +139,4 @@ void mirror_manager::run() {
 
     cout << "DEBUG --::-- MirrorServer #" << _id << " dying!" << endl;
 
-    pthread_exit(nullptr);
 }
