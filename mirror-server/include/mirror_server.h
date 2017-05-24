@@ -22,9 +22,14 @@ private:
     queue<my_string> _data_queue;
     pthread_t *_managers;
     int _sockfd;
-    pthread_mutex_t _rw_mtx, _done_mtx, _full_mtx, _empty_mtx;
-    pthread_cond_t _cond;
-    pthread_t _tid;
+    pthread_mutex_t _rw_mtx, _f_mtx, _e_mtx;
+    pthread_cond_t _e_cond, _f_cond;
+	
+	
+	bool _empty;
+	bool _full;
+	
+	bool _debug;
 	my_vector<my_string> _down_serv;
 
     void _mtx_init();

@@ -64,7 +64,8 @@ void content_manager::run() {
 				// Check if we just popped the last element of the queue
 				// If we have, set _empty to true
 				// (We already hold the empty mutex at this point)
-				if (_q->empty()) *_empty = true;
+				*_empty = _q->empty();
+				// if (_q->empty()) *_empty = true;
 			}
 			pthread_mutex_unlock(_q_mtx);
 		}

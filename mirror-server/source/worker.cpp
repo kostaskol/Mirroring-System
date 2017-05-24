@@ -13,14 +13,25 @@
 
 using namespace std;
 
-worker::worker(queue<my_string> *q, pthread_mutex_t *e_mtx,
-               pthread_mutex_t *f_mtx, pthread_mutex_t *rw_mtx, my_string path, bool *done) {
+worker::worker(queue<my_string> *q, pthread_mutex_t *e_mtx, 
+	pthread_mutex_t *f_mtx, pthread_mutex_t *rw_mtx, 
+	pthread_cond_t *e_cond, pthread_cond_t *f_cond, bool *done, 
+	bool *empty, bool *full, my_string path, bool *debug) {
     _q = q;
     _path = path;
     _done = done;
-    _empty_mtx = e_mtx;
-    _full_mtx = f_mtx;
+    _e_mtx = e_mtx;
+    _f_mtx = f_mtx;
     _rw_mtx = rw_mtx;
+	
+	_e_cond = e_cond;
+	_f_cond = f_cond;
+	
+	_full = full;
+	_empty = empty;
+	
+	_done = done;
+	
     _bytes_recvd = 0;
     _files_recvd = 0;
 }
@@ -29,86 +40,87 @@ worker::worker(queue<my_string> *q, pthread_mutex_t *e_mtx,
 stats *worker::run() {
     bool end = false;
     cout << "DEBUG --::-- Worker " << pthread_self() << " started!" << endl;
+	
+	// TODO: Still need to figure out how to know that it's the end the session
     do {
-        my_string details;
-        // We check whether we are done after each mutex lock
-        // in case the thread was waiting there
-        // While MirrorServers are running, there is the possibility that the queue is empty
-        // but the process has not ended (and we simply need to wait)
-        if (*_done) break;
-		// Wait for the queue to have at least one element in it
-        pthread_mutex_lock(_empty_mtx);
-        if (*_done) break;
-		// Wait until no other thread is modifying the queue
-        pthread_mutex_lock(_rw_mtx);
-        if (*_done) break;
-        try {
-            details = _q->pop();
-        } catch (runtime_error &e) {
-            end = true;
-        }
-		// Inform other threads that we are done modifying the queue
-        pthread_mutex_unlock(_rw_mtx);
-		// Inform the producers that the queue is not full
-        pthread_mutex_unlock(_full_mtx);
-
-        if (!end) {
-            my_string addr, path;
-            int port, id;
-            try {
-                _get_info(&path, &addr, &port, &id, details);
-            } catch (runtime_error &e) {
-                cerr << "Worker thread #" << pthread_self() << "Malformed string from queue: " << details << endl;
-                continue;
-            }
-
-            _make_con(addr, port);
-            // We now have the address and port of the server
-            // and the requested path
-            _fetch(path, addr, port, id);
-            // We don't need thread safety on _q->empty
-            // since it performs a read-only operation
-        }
-    } while (!end);
-
-    while (!_q->empty()) {
-        my_string details;
-        // When, however, the MirrorManagers have stopped working,
-        // we simply need to be careful of the rw operations on the queue,
-        // and stop once we see an empty queue
-        cout << "Worker #" << pthread_self() << " locking rw (done)" << endl;
-        pthread_mutex_lock(_rw_mtx);
+		my_string details;
+		// We'll need to do a broadcast here
+		// TODO: Maybe I should lock both empty and done here
+		pthread_mutex_lock(_e_mtx);
 		{
-	        if (_q->empty()) end = true;
-	        details = _q->pop();
-	        // if (_q->empty()) pthread_mutex_lock(_empty_mtx);
-	        // else pthread_mutex_unlock(_empty_mtx);
-	        cout << "Worker #" << pthread_self() << ": Unlocking rw_mtx (done)" << endl;
-        }
-		pthread_mutex_unlock(_rw_mtx);
-
-        if (!end) {
-            my_string addr, path;
-            int port, id;
-            try {
-                _get_info(&path, &addr, &port, &id, details);
-            } catch (runtime_error &e) {
-                cerr << "Worker thread #" << pthread_self() << "Malformed string from queue: " << details << endl;
-                continue;
-            }
-
-            _make_con(addr, port);
-            // We now have the address and port of the server
-            // and the requested path
-            if (!_fetch(path, addr, port, id)) {
-				cout << "Error!" << endl;
+			while (*_empty && !*_done)
+				pthread_cond_wait(_e_cond, _e_mtx);
+		}
+		if (!*_done) {
+			{
+				pthread_mutex_lock(_rw_mtx);
+				{
+					details = _q->pop();
+					*_empty = _q->empty();
+				}
+				pthread_mutex_unlock(_rw_mtx);
 			}
-			close(_sockfd);
-            // We don't need thread safety on _q->empty
-            // since it performs a read-only operation
-        }
-    }
+			pthread_mutex_unlock(_e_mtx);
+			
+			pthread_mutex_lock(_f_mtx);
+			{
+				*_full = false;
+				pthread_cond_signal(_f_cond);
+			}
+			pthread_mutex_unlock(_f_mtx);
+	        my_string addr, path;
+	        int port, id;
+	        try {
+	            _get_info(&path, &addr, &port, &id, details);
+	        } catch (runtime_error &e) {
+	            cerr << "Worker thread #" << pthread_self() << "Malformed string from queue: " << details << endl;
+	            continue;
+	        }
 
+
+			// This is standard so it remains
+	        _make_con(addr, port);
+	        _fetch(path, addr, port, id);
+			
+			close(_sockfd);
+		} else {
+			// If the mirror managers aren't going to put anything else 
+			// into the queue, we just pop from it until empty
+			pthread_mutex_unlock(_e_mtx);
+			end = false;
+			do {
+				pthread_mutex_lock(_rw_mtx);
+				{
+					try {
+						details = _q->pop();
+					} catch (runtime_error &e) {
+						end = true;
+					}
+				}
+				pthread_mutex_unlock(_rw_mtx);
+				
+				my_string addr, path;
+			   int port, id;
+			   try {
+				   _get_info(&path, &addr, &port, &id, details);
+			   } catch (runtime_error &e) {
+				   cerr << "Worker thread #" << pthread_self() 
+				   	    << "Malformed string from queue: " << details << endl;
+				   continue;
+			   }
+
+
+			   // This is standard so it remains
+			   _make_con(addr, port);
+			   _fetch(path, addr, port, id);
+			   
+			   close(_sockfd);
+				
+			} while (!end);
+		}
+
+	} while (!end);
+	
     stats *statistics = new stats;
     statistics->bytes = _bytes_recvd;
     statistics->files = _files_recvd;

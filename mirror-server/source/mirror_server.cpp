@@ -14,20 +14,22 @@ mirror_server::mirror_server(cmd_parser *args) {
     _port = args->get_port();
     _outp_path = args->get_outp_path();
     _worker_num = args->get_thread_num();
+	_debug = args->is_debug();
     if (_worker_num < 1) {
         cerr << "Bad input for thread number: " << _worker_num << endl;
         exit(-1);
     }
+
     _workers = new pthread_t[_worker_num];
     _mtx_init();
 }
 
 void mirror_server::_mtx_init() {
     if (pthread_mutex_init(&_rw_mtx, nullptr)
-            || pthread_mutex_init(&_done_mtx, nullptr)
-            || pthread_mutex_init(&_full_mtx, nullptr)
-            || pthread_mutex_init(&_empty_mtx, nullptr)
-			|| pthread_cond_init(&_cond, nullptr)) {
+            || pthread_mutex_init(&_f_mtx, nullptr)
+            || pthread_mutex_init(&_e_mtx, nullptr)
+			|| pthread_cond_init(&_e_cond, nullptr)
+			|| pthread_cond_init(&_f_cond, nullptr)) {
         cerr << "Mutex creation failed. Exiting..." << endl;
         exit(-1);
     }
@@ -65,6 +67,8 @@ void mirror_server::init() {
 void mirror_server::run() {
     sockaddr_in client;
 	do {
+		_empty = true;
+		_full = false;
 	    socklen_t len = sizeof(struct sockaddr_in);
 		int clientfd;
 	    if ((clientfd = accept(_sockfd, (sockaddr *) &client, &len)) < 0) {
@@ -95,33 +99,26 @@ void mirror_server::run() {
 	        vec.push(tmp);
 	    }
 
-
-	    pthread_mutex_unlock(&_rw_mtx);
-	    pthread_mutex_unlock(&_full_mtx);
-	    pthread_mutex_lock(&_empty_mtx);
 	    _managers = new pthread_t[vec.size()];
 	    for (int i = 0; i < (int) vec.size(); i++) {
 	        my_vector<my_string> tmp_vec = vec.at(i);
 	        mirror_manager *man = new mirror_manager(tmp_vec, i, &_data_queue, 
-				&_empty_mtx, &_full_mtx, &_rw_mtx, &_done_mtx, &_cond, 
-				&_tid, &_down_serv);
+				&_e_mtx, &_f_mtx, &_rw_mtx, &_e_cond, &_f_cond, 
+				&_full, &_empty, _debug);
 	        pthread_attr_t attr;
 	        pthread_attr_init(&attr);
 	        pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
 	        pthread_create(&_managers[i], &attr, start_manager, man);
 	    }
 		
-		if (_down_serv.size() != 0) {
-			cout << "Some Servers where down: " << endl;
-			_down_serv.print();
-		}
 
 	    // Workers will loop until done becomes true
 	    bool done = false;
 
 	    for (int i = 0; i < _worker_num; i++) {
-	        worker *w = new worker(&_data_queue, &_empty_mtx, &_full_mtx,
-	                               &_rw_mtx, _outp_path, &done);
+	        worker *w = new worker(&_data_queue, &_e_mtx, &_f_mtx, &_rw_mtx, 
+				&_e_cond, &_f_cond, &done, &_empty, &_full, _outp_path, 
+				&_debug);
 	        pthread_attr_t attr;
 	        pthread_attr_init(&attr);
 	        pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
@@ -131,16 +128,20 @@ void mirror_server::run() {
 	    for (int count = 0; count < (int) vec.size(); count++) {
 	        pthread_join(_managers[count], nullptr);
 	    }
+		
+		cout << "DEBUG --::-- All mirrorManagers died" << endl;
+		
+		cout << "DEBUG --::-- Unblocking and joining worker threads!" << endl;
+		// The boolean variables _empty and _done
+		// share the same mutex
+		pthread_mutex_lock(&_e_mtx);
+		{
+			done = true;
+			pthread_cond_broadcast(&_e_cond);
+		}
+		pthread_mutex_unlock(&_e_mtx);
 
-	    cout << "DEBUG --::-- All mirrorManagers died" << endl;
-	    done = true;
-
-	    cout << "DEBUG --::-- Unblocking and joining worker threads!" << endl;
 	    // Wherever workers may be stuck, we unblock them
-	    for (int i = 0; i < _worker_num; i++) {
-	        pthread_mutex_unlock(&_empty_mtx);
-	        pthread_mutex_unlock(&_rw_mtx);
-	    }
 	    int bytes = 0, files = 0;
 	    for (int i = 0; i < _worker_num; i++) {
 	        void *tmp;
@@ -175,8 +176,12 @@ void mirror_server::run() {
 
 void *start_manager(void *arg) {
     mirror_manager *man = (mirror_manager *) arg;
-    man->init();
+    if (!man->init()) {
+		cerr << "A server isn't running" << endl;
+		pthread_exit(0);
+	}
     man->run();
+	cout << "Manager returned!!!!!" << endl;
     delete man;
     pthread_exit(0);
 }
