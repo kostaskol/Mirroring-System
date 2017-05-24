@@ -14,7 +14,7 @@ private:
     int _sockfd;
     bool _init;
 	queue<int> _queue;
-	pthread_mutex_t _q_mtx, _h_mtx, _f_mtx, _e_mtx;
+	pthread_mutex_t _q_mtx, _h_mtx, _f_mtx, _e_mtx, _stp_mtx;
 	
 	int _thread_num;
 

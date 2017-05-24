@@ -26,6 +26,7 @@ content_server::content_server(cmd_parser *parser) {
 	pthread_mutex_init(&_h_mtx, nullptr);
 	pthread_mutex_init(&_f_mtx, nullptr);
 	pthread_mutex_init(&_e_mtx, nullptr);
+	pthread_mutex_init(&_stp_mtx, nullptr);
 	
 	pthread_mutex_lock(&_e_mtx);
 	
@@ -68,10 +69,11 @@ void content_server::run() {
         exit(-1);
     }
 	// Create <thread_num> threads that will handle all connections
+	bool stop = true;
 	pthread_t *tids = new pthread_t[_thread_num];
 	for (int i = 0; i < _thread_num; i++) {
 		content_manager *man = new content_manager(&_q_mtx, &_h_mtx, &_e_mtx,
-							&_f_mtx, &_queue, &_h_table, _path);
+							&_f_mtx, &_stp_mtx, &_queue, &_h_table, _path, &stop);
 							
 		pthread_attr_t attr;
 		pthread_attr_init(&attr);
@@ -110,6 +112,11 @@ void content_server::run() {
 			cout << "Master : Unlocking queue" << endl;
 			pthread_mutex_unlock(&_q_mtx);
 		}
+		pthread_mutex_lock(&_stp_mtx);
+		{
+			stop = false;
+		}
+		pthread_mutex_unlock(&_stp_mtx);
 		cout << "Master unlocking empty" << endl;
 		pthread_mutex_unlock(&_e_mtx);
 		if (full) {
