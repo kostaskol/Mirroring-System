@@ -17,8 +17,6 @@
 #define BLOCK_RAW_SIZE 1024
 #define BLOCK_STR_SIZE 1023
 
-#define Q_MAX 256
-
 #define MTX_RW 0
 #define MTX_F 1
 #define MTX_E 2

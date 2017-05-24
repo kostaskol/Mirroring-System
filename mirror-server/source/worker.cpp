@@ -36,25 +36,21 @@ void worker::run() {
         // While MirrorServers are running, there is the possibility that the queue is empty
         // but the process has not ended (and we simply need to wait)
         if (*_done) break;
-        cout << "Worker #" << pthread_self() << ": Waiting on _empty_mtx" << endl;
+		// Wait for the queue to have at least one element in it
         pthread_mutex_lock(_empty_mtx);
         if (*_done) break;
-        cout << "Worker: Waiting on _rw_mtx" << endl;
+		// Wait until no other thread is modifying the queue
         pthread_mutex_lock(_rw_mtx);
         if (*_done) break;
         try {
             details = _q->pop();
-            // if (_q->empty()) pthread_mutex_lock(_empty_mtx);
-            // else pthread_mutex_unlock(_empty_mtx);
         } catch (runtime_error &e) {
-            cerr << "Worker thread #" << pthread_self() << ": Queue threw a runtime error" << endl;
             end = true;
         }
-        cout << "Worker: Unlocking rw_mtx" << endl;
+		// Inform other threads that we are done modifying the queue
         pthread_mutex_unlock(_rw_mtx);
-        cout << "Worker: Unlocking full_mtx" << endl;
+		// Inform the producers that the queue is not full
         pthread_mutex_unlock(_full_mtx);
-        cout << "Worker #" << pthread_self() << " popped " << details << endl;
 
         if (!end) {
             my_string addr, path;
@@ -124,7 +120,7 @@ bool worker::_fetch(my_string path, my_string addr, int port, int id) {
     fetcher += path;
     fetcher += ":";
     fetcher += id;
-    cout << "Fetching " << fetcher << endl;
+    cout << "Thread #" << pthread_self() << " fetching " << fetcher << endl;
     send(_sockfd, fetcher.c_str(), fetcher.length(), 0);
 
     // Receive amount of files that will be transfered
@@ -180,6 +176,7 @@ bool worker::_fetch(my_string path, my_string addr, int port, int id) {
             hf::send_ok(_sockfd);
         }
     }
+	cout << "Thread #" << pthread_self() << " fetched" << endl;
     return true;
 }
 

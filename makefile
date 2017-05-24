@@ -9,16 +9,17 @@ OUTP_CS = content-serv
 SRC_SHRD = shared/source/cmd_parser.cpp\
 						shared/source/help_func.cpp\
 						shared/source/my_string.cpp\
-						shared/source/my_vector.cpp
+						shared/source/my_vector.cpp\
+						shared/source/queue.cpp
 						
 SRC_CS = content-server/source/content_server.cpp\
 					content-server/source/cs-main.cpp\
-					content-server/source/hash_table.cpp
+					content-server/source/hash_table.cpp\
+					content-server/source/content_manager.cpp
 					
 SRC_MS = mirror-server/source/mirror_manager.cpp\
 					mirror-server/source/mirror_server.cpp\
 					mirror-server/source/ms-main.cpp\
-					mirror-server/source/queue.cpp\
 					mirror-server/source/worker.cpp
 					
 SRC_MI = mirror-initiator/source/mi-main.cpp\
@@ -64,6 +65,7 @@ mirror_init.o : mirror_init.cpp mirror_init.h help_func.h constants.h
 cs-main.o : cs-main.cpp cmd_parser.h constants.h content_server.h
 content_server.o : content_server.cpp constants.h content_server.h help_func.h
 hash_table.o : hash_table.cpp hash_table.h my_string.h
+content_manager.o : content_manager.cpp queue.h my_vector.h my_string.h hash_table.h help_func.h constants.h
 
 # Shared
 cmd_parser.o : cmd_parser.cpp cmd_parser.h constants.h

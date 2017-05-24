@@ -27,7 +27,7 @@ void cmd_parser::parse(int argc, char **argv) {
 
     switch (_mode) {
         case MODE_CS: {
-            if (argc != 5)
+            if (argc != 7)
                 err("Invalid number of command line arguments", argv[0]);
             for (int arg = 1; arg < argc; arg += 2) {
                 my_string argument = argv[arg];
@@ -43,7 +43,15 @@ void cmd_parser::parse(int argc, char **argv) {
                     } else {
                         err("Error while parsing command line arguments", argv[0]);
                     }
-                } else {
+                } else if (argument == "-w") {
+					if (arg + 1 < argc) {
+						cout << "Cmd args: Parsed -w ";
+						_t_num = atoi(argv[arg + 1]);
+						cout << _t_num << endl;
+					} else {
+						err("Error while parsing command line arguments", argv[0]);
+					}
+				} else {
                     my_string err_msg = "Unknown command line argument ";
                     err_msg += argv[1];
                     err(err_msg, argv[0]);
@@ -74,7 +82,7 @@ void cmd_parser::parse(int argc, char **argv) {
                     if (arg + 1 < argc) {
                         my_string tmp_str = argv[arg + 1];
                         my_vector<my_string> com_vec = tmp_str.split((char *) ",");
-                        for (int i = 0; i < com_vec.size(); i++) {
+                        for (int i = 0; i < (int) com_vec.size(); i++) {
                             _cserver_details.push(com_vec.at(i).split((char *)":"));
                         }
                     } else {
@@ -152,6 +160,7 @@ void cmd_parser::_helper(char *exec_name) {
         case MODE_CS: {
             cout << "-p: Specifies the port that the ContentServer should be listening to" << endl;
             cout << "-d: Directory or Filename that the ContentServer will make available to *all* valid requests" << endl;
+			cout << "-w: Number of open threads running" << endl;
             break;
         }
 

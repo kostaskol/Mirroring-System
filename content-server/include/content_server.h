@@ -5,6 +5,7 @@
 #include "my_string.h"
 #include "cmd_parser.h"
 #include "hash_table.h"
+#include "queue.h"
 
 class content_server {
 private:
@@ -12,16 +13,12 @@ private:
     int _port;
     int _sockfd;
     bool _init;
+	queue<int> _queue;
+	pthread_mutex_t _q_mtx, _h_mtx, _f_mtx, _e_mtx;
+	
+	int _thread_num;
 
     hash_table<int> _h_table;
-
-    void _get_contents_cond(my_vector<my_string> *v, my_string path, my_string cond);
-
-    void _get_list(my_string path, my_vector<my_string> *v);
-
-    void _do_list(int clientfd);
-
-    void _do_fetch(int clientfd, my_string path, my_string id);
 public:
     content_server(cmd_parser *parser);
 
@@ -30,5 +27,6 @@ public:
     void run();
 };
 
+void *manager_starter(void *arg);
 
 #endif //CONTENT_SERVER_CONTENT_SERVER_H
