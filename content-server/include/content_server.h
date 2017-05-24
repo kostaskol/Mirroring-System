@@ -14,11 +14,14 @@ private:
     int _sockfd;
     bool _init;
 	queue<int> _queue;
-	pthread_mutex_t _q_mtx, _h_mtx, _f_mtx, _e_mtx, _stp_mtx;
+	pthread_mutex_t _q_mtx, _h_mtx, _f_mtx, _e_mtx;
+	pthread_cond_t _e_cond, _f_cond;
 	
 	int _thread_num;
 	
 	bool _debug;
+	bool _empty;
+	bool _full;
 
     hash_table<int> _h_table;
 public:

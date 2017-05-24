@@ -15,7 +15,6 @@
 
 using namespace std;
 
-
 content_server::content_server(cmd_parser *parser) {
     _path = parser->get_path_name();
     _port = parser->get_port();
@@ -23,15 +22,15 @@ content_server::content_server(cmd_parser *parser) {
     _sockfd = 0;
     _init = false;
 	_debug = parser->is_debug();
-	
 	pthread_mutex_init(&_q_mtx, nullptr);
 	pthread_mutex_init(&_h_mtx, nullptr);
 	pthread_mutex_init(&_f_mtx, nullptr);
 	pthread_mutex_init(&_e_mtx, nullptr);
-	pthread_mutex_init(&_stp_mtx, nullptr);
+	pthread_cond_init(&_e_cond, nullptr);
+	pthread_cond_init(&_f_cond, nullptr);
 	
-	pthread_mutex_lock(&_e_mtx);
-	
+	_empty = true;
+	_full = false;
 }
 
 void content_server::init() {
@@ -72,22 +71,20 @@ void content_server::run() {
         exit(-1);
     }
 	// Create <thread_num> threads that will handle all connections
-	bool stop = true;
 	pthread_t *tids = new pthread_t[_thread_num];
+	cout << "Master full " << &_full << endl;
 	for (int i = 0; i < _thread_num; i++) {
+		cout << "Master : " << " creating new thread" << endl;
 		content_manager *man = new content_manager(&_q_mtx, &_h_mtx, &_e_mtx,
-							&_f_mtx, &_stp_mtx, &_queue, &_h_table, _path, 
-							&stop, _debug);
+							&_f_mtx, &_e_cond, &_f_cond, &_queue, &_h_table,
+							_path, &_empty, &_full, _debug);
 							
 		pthread_attr_t attr;
 		pthread_attr_init(&attr);
 		pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
 		pthread_create(&tids[i], &attr, manager_starter, man);
 	}
-	// What *could* happen is:
-	// have 5 threads that will all listen to this socket and they will all 
-	// handle the requests (no need for a queue) 
-	// Branch and try
+
 	do {
         int client_fd;
         socklen_t len = sizeof(struct sockaddr_in);
@@ -95,42 +92,39 @@ void content_server::run() {
             perror("Accept");
             exit(-1);
         }
-		
+		cout << "Thread #" << pthread_self() << " just accepted an fd" << endl; 
 	
 		// Wait until the queue is not full
-		cout << "Master : Waiting on full" << endl;
-		bool full;
+
+		// TODO: Make sure we are safe to unlock it here
+		// At this point we are already holding the full mutex
+		cout << "Master : Waiting on queue" << endl;
+		pthread_mutex_lock(&_q_mtx);
+		{
+			cout << "Pushing connection" << endl;
+			_queue.push(client_fd);
+			
+			// Make sure that the queue isn't full
+			_full = _queue.full();
+			cout << "Queue is " << _full << endl;
+		}
+		pthread_mutex_unlock(&_q_mtx);
+		cout << "Locking _e_mtx" << endl;
+		pthread_mutex_lock(&_e_mtx);
+		{
+			cout << "Lowered empty flag" << endl;
+			_empty = false;
+			pthread_cond_signal(&_e_cond);
+		}
+		pthread_mutex_unlock(&_e_mtx);
+		
 		pthread_mutex_lock(&_f_mtx);
 		{
-			// Lock the queue
-			cout << "Master : Waiting on queue" << endl;
-			pthread_mutex_lock(&_q_mtx);
-			{
-				// Push the new client fd into the queue
-				_queue.push(client_fd);
-				// Check whether the last push filled the queue
-				// If it has, stop (ourselves) from pushing into the queue
-				// Otherwise, allow pushing
-				full = _queue.full();
+			while (_full) {
+				pthread_cond_wait(&_f_cond, &_f_mtx);
 			}
-			cout << "Master : Unlocking queue" << endl;
-			pthread_mutex_unlock(&_q_mtx);
 		}
-		pthread_mutex_lock(&_stp_mtx);
-		{
-			stop = false;
-		}
-		pthread_mutex_unlock(&_stp_mtx);
-		cout << "Master unlocking empty" << endl;
-		pthread_mutex_unlock(&_e_mtx);
-		if (full) {
-			cout << "Master locking full" << endl;
-			pthread_mutex_lock(&_f_mtx);
-			cout << "Master locked full" << endl;
-		} else {
-			cout << "Master unlocking full" << endl;
-			pthread_mutex_unlock(&_f_mtx);
-		}
+		pthread_mutex_unlock(&_f_mtx);
         
     } while(true);
 }
