@@ -57,17 +57,20 @@ stats *worker::run() {
 				{
 					details = _q->pop();
 					*_empty = _q->empty();
+					
 				}
 				pthread_mutex_unlock(_rw_mtx);
 			}
 			pthread_mutex_unlock(_e_mtx);
-			
+			// Signal the full flag
 			pthread_mutex_lock(_f_mtx);
 			{
 				*_full = false;
 				pthread_cond_signal(_f_cond);
 			}
 			pthread_mutex_unlock(_f_mtx);
+			
+			
 	        my_string addr, path;
 	        int port, id;
 	        try {
@@ -78,7 +81,6 @@ stats *worker::run() {
 	        }
 
 
-			// This is standard so it remains
 	        _make_con(addr, port);
 	        _fetch(path, addr, port, id);
 			
@@ -91,13 +93,12 @@ stats *worker::run() {
 			do {
 				pthread_mutex_lock(_rw_mtx);
 				{
-					try {
-						details = _q->pop();
-					} catch (runtime_error &e) {
-						end = true;
-					}
+					
+					if (_q->empty()) end = true;
+					else details = _q->pop();
 				}
 				pthread_mutex_unlock(_rw_mtx);
+				if (end) break;
 				
 				my_string addr, path;
 			   int port, id;
@@ -116,7 +117,7 @@ stats *worker::run() {
 			   
 			   close(_sockfd);
 				
-			} while (!end);
+		   } while (true);
 		}
 
 	} while (!end);
@@ -159,15 +160,6 @@ bool worker::_fetch(my_string path, my_string addr, int port, int id) {
     _files_recvd += len;
     for (int file = 0; file < len; file++) {
         // Read amount of bytes to be sent
-        buffer = new char[1024];
-        read = recv(_sockfd, buffer, 1023, 0);
-        buffer[read] = '\0';
-        hf::send_ok(_sockfd);
-        int max = atoi(buffer);
-        delete[] buffer;
-        my_string fname;
-        hf::read_fname(_sockfd, &fname, max);
-        
 		my_string tmp_name = _path;
 		tmp_name += "/";
 		tmp_name += addr; tmp_name += "-"; tmp_name += port;

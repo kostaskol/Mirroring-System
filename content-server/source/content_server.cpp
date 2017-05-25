@@ -66,7 +66,8 @@ void content_server::run() {
 
     struct sockaddr_in client;
 
-    if ((listen(_sockfd, 5)) < 0) {
+	// We allow thread_num open connections at a time
+    if ((listen(_sockfd, _thread_num)) < 0) {
         perror("Listen");
         exit(-1);
     }

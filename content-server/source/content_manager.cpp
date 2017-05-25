@@ -122,6 +122,8 @@ void content_manager::run() {
 					my_string id = cmd.at(2);
 				} catch (runtime_error &e) {
 					cerr << "User has sent us a malformed message "  << msg << endl;
+					cmd.print();
+					continue;
 				}
 				// Find the delay for the given ID
 				cout << "Thread #" << pthread_self() << " Locking h_mtx" << endl;
@@ -213,24 +215,10 @@ void content_manager::_do_fetch(int clientfd, my_string path) {
     for (int file = 0; file < (int) list.size(); file++) {
         // Send the name of each file
         my_string fname = list.at((int) file);
-        int loops = (int) fname.length() / BLOCK_STR_SIZE;
         // Send the number of bytes that the client should read
         // and have them expect that number of bytes
-        hf::send_num_blocks(clientfd, (int) fname.length());
-        hf::recv_ok(clientfd);
-        uint offs = 0;
         // For each part of the file name
         // send at most BLOCK_STR_SIZE characters
-        for (int file_part = 0; file_part < loops + 1; file_part++) {
-            int curr_len = (fname.length() - offs) > BLOCK_STR_SIZE
-                           ? BLOCK_STR_SIZE : ((int) fname.length() - offs);
-            my_string str_part = fname.substr(offs, curr_len);
-            if (send(clientfd, str_part.c_str(), (uint16_t) curr_len, 0) == 0) {
-              cout << "The client has closed the connection" << endl;
-            }
-            hf::recv_ok(clientfd);
-            offs += curr_len;
-        }
 
         ifstream inp(fname.c_str(), ios::binary | ios::in);
         inp.seekg(0, ios::end);

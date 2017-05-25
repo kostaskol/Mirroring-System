@@ -48,7 +48,6 @@ void mirror_init::init() {
 void mirror_init::run() {
     // First off, send the server the number of content servers
     // it is supposed to get
-    cout << "Hello World" << endl;
     hf::send_num_blocks(_sockfd, (int) _cservers.size());
     hf::recv_ok(_sockfd);
 

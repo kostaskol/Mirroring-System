@@ -59,6 +59,7 @@ bool mirror_manager::init() {
 
     if ((connect(_sockfd, (struct sockaddr *) &remote_server, sizeof(struct sockaddr_in))) < 0) {
         perror("Manager: Connect");
+		cerr << _addr << ":" << _port << endl;
         close(_sockfd);
         return false;
     }
@@ -114,7 +115,11 @@ void mirror_manager::run() {
 		
 			pthread_mutex_lock(_rw_mtx);
 			{
-				_q->push(full_name);
+				try {
+					_q->push(full_name);
+				} catch (runtime_error &e) {
+					cerr << "Runtime error. Queue is full!" << endl;
+				}
 				*_full = _q->full();
 			}
 			pthread_mutex_unlock(_rw_mtx);
