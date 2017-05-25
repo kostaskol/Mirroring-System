@@ -167,7 +167,7 @@ bool worker::_fetch(my_string path, my_string addr, int port, int id) {
         delete[] buffer;
         my_string fname;
         hf::read_fname(_sockfd, &fname, max);
-        my_string tmp_name = _path;
+        /*my_string tmp_name = _path;
         if (fname[0] != '/') {
             tmp_name += "/";
         }
@@ -179,7 +179,8 @@ bool worker::_fetch(my_string path, my_string addr, int port, int id) {
         fname += tmp;
         my_string exec = "exec mkdir -p ";
         exec += hf::get_dir_path(fname);
-        system(exec.c_str());
+        system(exec.c_str());*/
+		my_string tmp_str = _path;
         ofstream outp(fname.c_str(), ios::binary | ios::out);
         buffer = new char[1024];
         read = recv(_sockfd, buffer, 1023, 0);
