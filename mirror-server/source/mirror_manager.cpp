@@ -115,6 +115,7 @@ void mirror_manager::run() {
 			pthread_mutex_lock(_rw_mtx);
 			{
 				_q->push(full_name);
+				*_full = _q->full();
 			}
 			pthread_mutex_unlock(_rw_mtx);
 			

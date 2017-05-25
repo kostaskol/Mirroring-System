@@ -4,6 +4,8 @@
 #include "constants.h"
 #include <iostream>
 #include <cstring>
+#include <unistd.h>
+#include <sys/stat.h>
 #include "constants.h"
 
 using namespace std;
@@ -53,14 +55,17 @@ namespace hf {
         } while (overall < max);
         *buffer = complete_buf;
     }
-
-    my_string get_dir_path(my_string path) {
-		cout << "Dir path " << path << endl;
-        my_vector<my_string> path_vec = path.split((char *) "/");
-        path_vec.remove_at(path_vec.size() - 1);
-        my_string tmp_path = path_vec.join('/');
-        return tmp_path;
-    }
-
+	
+	void mk_path(my_string path) {
+		my_vector<my_string> parts = path.split("/");
+		for (int part = 0; part < (int) parts.size() - 1; part++) {
+			my_string path_so_far = "";
+			for (int i = 0; i <= part; i++) {
+				path_so_far += parts.at(i);
+				path_so_far += "/";
+			}
+			mkdir(path_so_far.c_str(), 0777);
+		}
+	}
 
 }

@@ -14,7 +14,7 @@ namespace hf {
 
     void read_fname(int sockfd, my_string *buffer, int max);
 
-    my_string get_dir_path(my_string path);
+    void mk_path(my_string path);
 }
 
 #endif //VARIOUS_TESTS_HELPFUNC_H_H

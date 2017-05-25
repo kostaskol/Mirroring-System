@@ -167,21 +167,14 @@ bool worker::_fetch(my_string path, my_string addr, int port, int id) {
         delete[] buffer;
         my_string fname;
         hf::read_fname(_sockfd, &fname, max);
-        /*my_string tmp_name = _path;
-        if (fname[0] != '/') {
-            tmp_name += "/";
-        }
-		// fname.replace(' ', '_');
-		my_vector<my_string> correcter = fname.split(" ");
-		fname = correcter.join('_');
-        my_string tmp = fname;
-        fname = tmp_name;
-        fname += tmp;
-        my_string exec = "exec mkdir -p ";
-        exec += hf::get_dir_path(fname);
-        system(exec.c_str());*/
-		my_string tmp_str = _path;
-        ofstream outp(fname.c_str(), ios::binary | ios::out);
+        
+		my_string tmp_name = _path;
+		tmp_name += "/";
+		tmp_name += addr; tmp_name += "-"; tmp_name += port;
+		tmp_name += path;
+		hf::mk_path(tmp_name);
+		
+        ofstream outp(tmp_name.c_str(), ios::binary | ios::out);
         buffer = new char[1024];
         read = recv(_sockfd, buffer, 1023, 0);
         buffer[read] = '\0';
@@ -234,7 +227,7 @@ bool worker::_make_con(my_string addr, int port) {
 }
 
 void worker::_get_info(my_string *path, my_string *addr, int *port, int *id, my_string &str) {
-    my_vector<my_string> vec = str.split((char *) ":");
+    my_vector<my_string> vec = str.split(":");
     *path = vec.at(0);
     *addr = vec.at(1);
     *port = vec.at(2).to_int();

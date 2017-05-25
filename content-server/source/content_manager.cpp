@@ -107,13 +107,7 @@ void content_manager::run() {
 				// map the delay to the given ID
 				pthread_mutex_lock(_h_mtx); 
 				{
-					try {
-						_h_table->insert_key(id, delay.to_int());
-					} catch (runtime_error &e) {
-						pthread_mutex_unlock(_h_mtx);
-						close(client_fd);
-						continue;
-					}
+					_h_table->insert_key(id, delay.to_int());
 				}
 				pthread_mutex_unlock(_h_mtx);
 				
@@ -124,6 +118,11 @@ void content_manager::run() {
 				// If it's a FETCH request
 				int delay;
 				bool ex;
+				try {
+					my_string id = cmd.at(2);
+				} catch (runtime_error &e) {
+					cerr << "User has sent us a malformed message "  << msg << endl;
+				}
 				// Find the delay for the given ID
 				cout << "Thread #" << pthread_self() << " Locking h_mtx" << endl;
 				pthread_mutex_lock(_h_mtx);
