@@ -163,64 +163,50 @@ bool worker::_fetch(my_string path, my_string addr, int port, int id) {
     cout << "Thread #" << pthread_self() << " fetching " << fetcher << endl;
     send(_sockfd, fetcher.c_str(), fetcher.length(), 0);
 
-    // Receive amount of files that will be transfered
+    // Read amount of bytes to be sent
+	my_string tmp_name = _path;
+	tmp_name += "/";
+	tmp_name += addr; tmp_name += "-"; tmp_name += port;
+	tmp_name += path;
+	hf::mk_path(tmp_name);
+	
+	// Receive the amount of bytes that will be transfered
+    ofstream outp(tmp_name.c_str(), ios::binary | ios::out);
     char *buffer = new char[1024];
     ssize_t read = recv(_sockfd, buffer, 1023, 0);
 	if (read == 0) {
-		cout << "Remote Server has closed the connection!" << endl;
+		cerr << _path << ": No such file or directory on remote server" << endl;
+		delete[] buffer;
 		return false;
 	}
     buffer[read] = '\0';
-    my_string len_str = buffer;
+    int max_bytes = atoi(buffer);
     delete[] buffer;
-    int len = len_str.to_int();
-    if (len == 0) {
-        cout << "Worker #" << pthread_self() << path << ": No such file" 
-			 << " or directory at remote server " << addr << ":" << port << endl;
-		
-        return false;
-    }
     hf::send_ok(_sockfd);
-    for (int file = 0; file < len; file++) {
-        // Read amount of bytes to be sent
-		my_string tmp_name = _path;
-		tmp_name += "/";
-		tmp_name += addr; tmp_name += "-"; tmp_name += port;
-		tmp_name += path;
-		hf::mk_path(tmp_name);
-		
-        ofstream outp(tmp_name.c_str(), ios::binary | ios::out);
-        buffer = new char[1024];
-        read = recv(_sockfd, buffer, 1023, 0);
-        buffer[read] = '\0';
-        int max_bytes = atoi(buffer);
-        delete[] buffer;
-        hf::send_ok(_sockfd);
-		int bytes = 0;
-        int bytes_overall = 0;
-		do {
-			buffer = new char[1024];
-			read = recv(_sockfd, buffer, 1024, 0);
-			bytes += read;
-			bytes_overall += read;
-			outp.write(buffer, read);
-			delete[] buffer;
-		} while (bytes_overall < max_bytes);
-		
-		hf::send_ok(_sockfd);
-		
-		pthread_mutex_lock(_b_mtx);
-		{
-			*_bytes_total += bytes;
-		}
-		pthread_mutex_unlock(_b_mtx);
-		
-		pthread_mutex_lock(_file_mtx);
-		{
-			(*_files_total)++;
-		}
-		pthread_mutex_unlock(_file_mtx);
-    }
+	int bytes = 0;
+    int bytes_overall = 0;
+	do {
+		buffer = new char[1024];
+		read = recv(_sockfd, buffer, 1024, 0);
+		bytes += read;
+		bytes_overall += read;
+		outp.write(buffer, read);
+		delete[] buffer;
+	} while (bytes_overall < max_bytes);
+	
+	hf::send_ok(_sockfd);
+	
+	pthread_mutex_lock(_b_mtx);
+	{
+		*_bytes_total += bytes;
+	}
+	pthread_mutex_unlock(_b_mtx);
+	
+	pthread_mutex_lock(_file_mtx);
+	{
+		(*_files_total)++;
+	}
+	pthread_mutex_unlock(_file_mtx);
 	cout << "Thread #" << pthread_self() << " fetched" << endl;
     return true;
 }

@@ -207,43 +207,37 @@ void content_manager::_do_fetch(int clientfd, my_string path) {
     tmp_path += "/";
     tmp_path += path;
     _get_contents_cond(&list, tmp_path, path);
-    //_get_list(tmp_path, &list);
 
-    hf::send_num_blocks(clientfd, (int) list.size());
+    // Send the name of each file
+    my_string fname = list.at(0);
+    // Send the number of bytes that the client should read
+    // and have them expect that number of bytes
+    // For each part of the file name
+    // send at most BLOCK_STR_SIZE characters
+
+    ifstream inp(fname.c_str(), ios::binary | ios::in);
+    inp.seekg(0, ios::end);
+    int file_length = (int) inp.tellg();
+    inp.seekg(0, ios::beg);
+
+    int blocks = file_length / BLOCK_RAW_SIZE;
+
+    hf::send_num_blocks(clientfd, file_length);
     hf::recv_ok(clientfd);
-
-    for (int file = 0; file < (int) list.size(); file++) {
-        // Send the name of each file
-        my_string fname = list.at((int) file);
-        // Send the number of bytes that the client should read
-        // and have them expect that number of bytes
-        // For each part of the file name
-        // send at most BLOCK_STR_SIZE characters
-
-        ifstream inp(fname.c_str(), ios::binary | ios::in);
-        inp.seekg(0, ios::end);
-        int file_length = (int) inp.tellg();
-        inp.seekg(0, ios::beg);
-
-        int blocks = file_length / BLOCK_RAW_SIZE;
-
-        hf::send_num_blocks(clientfd, file_length);
-        hf::recv_ok(clientfd);
-		
-		cout << "Sending file " << fname << endl;
-        for (int block = 0; block < blocks + 1; block++) {
-            char *buffer = new char[BLOCK_RAW_SIZE];
-            inp.read(buffer, BLOCK_RAW_SIZE);
-            send(clientfd, buffer, BLOCK_RAW_SIZE, 0);
-			if (block == blocks) {
-				cout << "\rPart [" << block + 1 << "/" << blocks + 1 << "]" << endl;
-			} else {
-				cout << "\rPart [" << block + 1 << "/" << blocks + 1 << "]" << flush;
-			}
-        }
-		hf::recv_ok(clientfd);
-
+	
+	cout << "Sending file " << fname << endl;
+    for (int block = 0; block < blocks + 1; block++) {
+        char *buffer = new char[BLOCK_RAW_SIZE];
+        inp.read(buffer, BLOCK_RAW_SIZE);
+        send(clientfd, buffer, BLOCK_RAW_SIZE, 0);
+		if (block == blocks) {
+			cout << "\rPart [" << block + 1 << "/" << blocks + 1 << "]" << endl;
+		} else {
+			cout << "\rPart [" << block + 1 << "/" << blocks + 1 << "]" << flush;
+		}
     }
+	hf::recv_ok(clientfd);
+
     cout << "Finished Sending Data!" << endl;
 }
 
