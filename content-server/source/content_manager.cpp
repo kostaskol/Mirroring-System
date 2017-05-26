@@ -89,7 +89,7 @@ void content_manager::run() {
 		my_string msg = buffer;
 		if (_debug) cout << "Got message " << msg << endl;
 		// Figure out the components of the message
-		my_vector<my_string> cmd = msg.split(":");
+		my_vector<my_string> cmd = msg.split(':');
 		try {
 			if (cmd.at(0) == "LIST") {
 				my_string id, delay;
@@ -197,7 +197,7 @@ void content_manager::_do_list(int clientfd) {
 }
 
 void content_manager::_do_fetch(int clientfd, my_string path) {
-    my_vector<my_string> corr = path.split((char *)"/");
+    my_vector<my_string> corr = path.split(':');
     corr.remove(".");
     corr.remove("..");
     corr.remove("~");
@@ -227,7 +227,7 @@ void content_manager::_do_fetch(int clientfd, my_string path) {
 
         int blocks = file_length / BLOCK_RAW_SIZE;
 
-        hf::send_num_blocks(clientfd, blocks);
+        hf::send_num_blocks(clientfd, file_length);
         hf::recv_ok(clientfd);
 		
 		cout << "Sending file " << fname << endl;
@@ -235,13 +235,13 @@ void content_manager::_do_fetch(int clientfd, my_string path) {
             char *buffer = new char[BLOCK_RAW_SIZE];
             inp.read(buffer, BLOCK_RAW_SIZE);
             send(clientfd, buffer, BLOCK_RAW_SIZE, 0);
-            hf::recv_ok(clientfd);
-			/*if (block == blocks) {
+			if (block == blocks) {
 				cout << "\rPart [" << block + 1 << "/" << blocks + 1 << "]" << endl;
 			} else {
 				cout << "\rPart [" << block + 1 << "/" << blocks + 1 << "]" << flush;
-			}*/
+			}
         }
+		hf::recv_ok(clientfd);
 
     }
     cout << "Finished Sending Data!" << endl;

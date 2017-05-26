@@ -22,6 +22,7 @@ private:
     // For MirrorServer
     my_string _outp_path;
     int _t_num;
+	bool _search;
 
     void _helper(char *);
 public:
@@ -43,6 +44,8 @@ public:
     int get_thread_num();
 	
 	bool is_debug();
+	
+	bool is_search();
 
     cmd_parser &operator=(const cmd_parser &)=delete;
 };

@@ -7,6 +7,8 @@ using namespace std;
 
 cmd_parser::cmd_parser(int mode) {
     _mode = mode;
+	_debug = false;
+	_search = false;
 }
 
 void err(my_string msg, char *exec_name) {
@@ -122,6 +124,8 @@ void cmd_parser::parse(int argc, char **argv) {
                     }
                 } else if (argument == "--debug") {
 					_debug = true;
+				} else if (argument == "-s") {
+					_search = true;
 				} else {
                     my_string err_msg = "Unknown command line argument ";
                     err_msg += argv[1];
@@ -201,3 +205,5 @@ my_string cmd_parser::get_outp_path() { return _outp_path; }
 int cmd_parser::get_thread_num() { return _t_num; }
 
 bool cmd_parser::is_debug() { return _debug; }
+
+bool cmd_parser::is_search() { return _search; }

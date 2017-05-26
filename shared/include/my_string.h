@@ -30,6 +30,8 @@ public:
 
     my_vector<my_string> split(char *delim);
 	
+	my_vector<my_string> split(char delim);
+	
 	my_vector<my_string> split(const char *delim);
 	
     my_string substr(int start, int length);

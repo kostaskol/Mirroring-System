@@ -95,7 +95,7 @@ void mirror_init::run() {
         resp.remove(';');
 
         if (resp.starts_with("ERR")) {
-            my_vector<my_string> resp_vec = resp.split((char *)":");
+            my_vector<my_string> resp_vec = resp.split(":");
 			try {
             	cout << "No content server running at " 
 				 	 << resp_vec.at(1) << ":" << resp_vec.at(2) << endl;

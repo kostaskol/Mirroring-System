@@ -1,6 +1,7 @@
 #include "mirror_server.h"
 #include "constants.h"
 #include "worker.h"
+#include "help_func.h"
 #include <iostream>
 #include <sys/socket.h>
 #include <cstring>
@@ -10,29 +11,121 @@
 
 using namespace std;
 
+int g_clientfd;
+
 mirror_server::mirror_server(cmd_parser *args) {
     _port = args->get_port();
+	cout << "Port is " << _port << endl;
     _outp_path = args->get_outp_path();
     _worker_num = args->get_thread_num();
 	_debug = args->is_debug();
+	_search = args->is_search();
     if (_worker_num < 1) {
         cerr << "Bad input for thread number: " << _worker_num << endl;
         exit(-1);
     }
-
-    _workers = new pthread_t[_worker_num];
-    _mtx_init();
+	
+	_bytes_recvd = 0;
+	_files_recvd = 0;
+	_q_done = 0;
+	
+	_empty = true;
+	_full = false;
+	_done = false;
+	_ack = false;
+	
+	pthread_mutex_init(&_rw_mtx, nullptr);
+	pthread_mutex_init(&_f_mtx, nullptr);
+	pthread_mutex_init(&_e_mtx, nullptr);
+	pthread_mutex_init(&_done_mtx, nullptr);
+	pthread_mutex_init(&_q_done_mtx, nullptr);
+	pthread_mutex_init(&_bytes_mtx, nullptr);
+	pthread_mutex_init(&_file_mtx, nullptr);
+	pthread_mutex_init(&_ack_mtx, nullptr);
+	pthread_cond_init(&_f_cond, nullptr);
+	pthread_cond_init(&_e_cond, nullptr);
+	pthread_cond_init(&_q_done_cond, nullptr);
+	pthread_cond_init(&_ack_cond, nullptr);
+	
+	
+	_mtx_init();
+	_workers = new pthread_t[_worker_num];
+	for (int i = 0; i < _worker_num; i++) {
+		worker *w = new worker(&_data_queue, &_e_mtx, &_f_mtx, &_rw_mtx,
+			&_bytes_mtx, &_file_mtx, &_done_mtx, &_q_done_mtx, &_ack_mtx,
+			&_q_done_cond, &_e_cond, &_f_cond, &_ack_cond, &_done, &_q_done, 
+			&_empty, 
+			&_full, &_ack, &_bytes_recvd, &_files_recvd, _outp_path, &_debug);
+		pthread_attr_t attr;
+		pthread_attr_init(&attr);
+		pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
+		pthread_create(&_workers[i], &attr, start_worker, w);
+	}
+	cerr << "Created threads" << endl;
+	
 }
 
 void mirror_server::_mtx_init() {
-    if (pthread_mutex_init(&_rw_mtx, nullptr)
-            || pthread_mutex_init(&_f_mtx, nullptr)
-            || pthread_mutex_init(&_e_mtx, nullptr)
-			|| pthread_cond_init(&_e_cond, nullptr)
-			|| pthread_cond_init(&_f_cond, nullptr)) {
-        cerr << "Mutex creation failed. Exiting..." << endl;
-        exit(-1);
-    }
+	pthread_mutex_lock(&_rw_mtx);
+	{
+		pthread_mutex_destroy(&_rw_mtx);
+		pthread_mutex_init(&_rw_mtx, nullptr);
+	}
+	pthread_mutex_unlock(&_rw_mtx);
+	
+	pthread_mutex_lock(&_f_mtx);
+	{
+		pthread_mutex_destroy(&_f_mtx);
+		pthread_mutex_init(&_f_mtx, nullptr);
+		pthread_cond_destroy(&_f_cond);
+		pthread_cond_init(&_f_cond, nullptr);
+		_full = false;
+	}
+	pthread_mutex_unlock(&_f_mtx);
+	
+	pthread_mutex_lock(&_e_mtx);
+	{
+		pthread_mutex_destroy(&_e_mtx);
+		pthread_mutex_init(&_e_mtx, nullptr);
+		pthread_cond_destroy(&_e_cond);
+		pthread_cond_init(&_e_cond, nullptr);
+		_empty = true;
+	}
+	pthread_mutex_unlock(&_e_mtx);
+	
+	pthread_mutex_lock(&_done_mtx);
+	{
+		pthread_mutex_destroy(&_done_mtx);
+		pthread_mutex_init(&_done_mtx, nullptr);
+		_done = false;
+	}
+	pthread_mutex_unlock(&_done_mtx);
+	
+	pthread_mutex_lock(&_q_done_mtx);
+	{
+		pthread_mutex_destroy(&_q_done_mtx);
+		pthread_mutex_init(&_q_done_mtx, nullptr);
+		pthread_cond_destroy(&_q_done_cond);
+		pthread_cond_init(&_q_done_cond, nullptr);
+		_q_done = 0;
+	}
+	pthread_mutex_unlock(&_q_done_mtx);
+	
+	pthread_mutex_lock(&_bytes_mtx);
+	{
+		pthread_mutex_destroy(&_bytes_mtx);
+		pthread_mutex_init(&_bytes_mtx, nullptr);
+		_bytes_recvd = 0;
+	}
+	pthread_mutex_unlock(&_bytes_mtx);
+	
+	pthread_mutex_lock(&_file_mtx);
+	{
+		pthread_mutex_destroy(&_file_mtx);
+		pthread_mutex_init(&_file_mtx, nullptr);
+		_files_recvd = 0;
+	}
+	pthread_mutex_unlock(&_file_mtx);
 }
 
 void mirror_server::init() {
@@ -57,24 +150,36 @@ void mirror_server::init() {
     }
 
 
-
-    if ((listen(_sockfd, 5)) < 0) {
+    if ((listen(_sockfd, 1)) < 0) {
         perror("Listen");
         exit(-1);
     }
 }
 
 void mirror_server::run() {
+	// Workers will loop until done becomes true
+	cerr << "Running" << endl;
     sockaddr_in client;
 	do {
-		_empty = true;
-		_full = false;
+		
+		pthread_mutex_lock(&_ack_mtx);
+		{
+			pthread_mutex_destroy(&_ack_mtx);
+			pthread_mutex_init(&_ack_mtx, nullptr);
+			pthread_cond_destroy(&_ack_cond);
+			pthread_cond_init(&_ack_cond, nullptr);
+			_ack = false;
+		}
+		pthread_mutex_unlock(&_ack_mtx);
+		
 	    socklen_t len = sizeof(struct sockaddr_in);
 		int clientfd;
+		cerr << "Listening to port " << _port << endl;
 	    if ((clientfd = accept(_sockfd, (sockaddr *) &client, &len)) < 0) {
 	        perror("accept");
 	        exit(-1);
 	    }
+		g_clientfd = clientfd;
 
 	    char *buffer = new char[1024];
 	    ssize_t read = recv(clientfd, buffer, 1023, 0);
@@ -104,27 +209,13 @@ void mirror_server::run() {
 	        my_vector<my_string> tmp_vec = vec.at(i);
 	        mirror_manager *man = new mirror_manager(tmp_vec, i, &_data_queue, 
 				&_e_mtx, &_f_mtx, &_rw_mtx, &_e_cond, &_f_cond, 
-				&_full, &_empty, _debug);
+				&_full, &_empty, _debug, _search);
 	        pthread_attr_t attr;
 	        pthread_attr_init(&attr);
 	        pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
 	        pthread_create(&_managers[i], &attr, start_manager, man);
 	    }
-		
-
-	    // Workers will loop until done becomes true
-	    bool done = false;
-
-	    for (int i = 0; i < _worker_num; i++) {
-	        worker *w = new worker(&_data_queue, &_e_mtx, &_f_mtx, &_rw_mtx, 
-				&_e_cond, &_f_cond, &done, &_empty, &_full, _outp_path, 
-				&_debug);
-	        pthread_attr_t attr;
-	        pthread_attr_init(&attr);
-	        pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
-	        pthread_create(&_workers[i], &attr, start_worker, w);
-	    }
-
+	   
 	    for (int count = 0; count < (int) vec.size(); count++) {
 	        pthread_join(_managers[count], nullptr);
 	    }
@@ -136,40 +227,51 @@ void mirror_server::run() {
 		// share the same mutex
 		pthread_mutex_lock(&_e_mtx);
 		{
-			done = true;
+			_done = true;
 			pthread_cond_broadcast(&_e_cond);
 		}
 		pthread_mutex_unlock(&_e_mtx);
-
-	    // Wherever workers may be stuck, we unblock them
-	    int bytes = 0, files = 0;
-	    for (int i = 0; i < _worker_num; i++) {
-	        void *tmp;
-	        pthread_join(_workers[i], &tmp);
-	        cout << "DEBUG --::-- worker thread #" << i << " died" << endl;
-	        stats *st = (stats *) tmp;
-	        bytes += st->bytes;
-	        files += st->files;
-	        delete st;
-	    }
+		
+		// Wait until a worker thread raises a queue done signal
+		pthread_mutex_lock(&_q_done_mtx);
+		{
+			while(_q_done < _worker_num) {
+				cerr << "Server waiting for signal!" << endl;
+				pthread_cond_wait(&_q_done_cond, &_q_done_mtx);
+				cerr << "Signal arrived and _q_done is " << _q_done << endl;
+			}
+			cerr << "Server got signal and is exiting" << endl;
+		}
+		pthread_mutex_unlock(&_q_done_mtx);
 
 	    my_string msg = "OK:";
-	    msg += files;
+	    msg += _files_recvd;
 	    msg += ":";
-	    msg += bytes;
+	    msg += _bytes_recvd;
 		msg += ":";
-		if (files != 0)
-			msg += (bytes / files);
+		if (_files_recvd != 0)
+			msg += (_bytes_recvd / _files_recvd);
 		else 
 			msg += 0;
 		msg += ":";
-		if (files != 0)
-			msg += ((int) sqrt(bytes / files));
+		if (_files_recvd != 0)
+			msg += ((int) sqrt(_bytes_recvd / _files_recvd));
 		else 
 			msg += 0;
 	    msg += ";";
 	    send(clientfd, msg.c_str(), msg.length(), 0);
 	    close(clientfd);
+		
+		_mtx_init();
+		
+		pthread_mutex_lock(&_ack_mtx);
+		{
+			_ack = true;
+			pthread_cond_broadcast(&_ack_cond);
+		}
+		pthread_mutex_unlock(&_ack_mtx);
+		
+		sleep(1);
 		cout << "Session ended" << endl;
 	} while (true);
 }
@@ -177,7 +279,16 @@ void mirror_server::run() {
 void *start_manager(void *arg) {
     mirror_manager *man = (mirror_manager *) arg;
     if (!man->init()) {
-		cerr << "A server isn't running" << endl;
+		my_string msg = "ERR:";
+		msg += man->get_addr();
+		msg += ":";
+		msg += man->get_port();
+		msg += ";";
+		
+		send(g_clientfd, msg.c_str(), msg.length(), 0);
+		hf::recv_ok(g_clientfd);
+		
+		delete man;
 		pthread_exit(0);
 	}
     man->run();

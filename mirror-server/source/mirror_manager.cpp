@@ -9,13 +9,14 @@
 #include <cstring>
 #include <unistd.h>
 #include <signal.h>
+#include <stdexcept>
 
 using namespace std;
 
 mirror_manager::mirror_manager(my_vector<my_string> details, int id, 
 	queue<my_string> *q, pthread_mutex_t *e_mtx, pthread_mutex_t *f_mtx, 
 	pthread_mutex_t *rw_mtx, pthread_cond_t *e_cond, 
-	pthread_cond_t *f_cond, bool *full, bool *empty, bool debug) {
+	pthread_cond_t *f_cond, bool *full, bool *empty, bool debug, bool search) {
     _id = id;
     _addr = details.at(CS_ADDR);
     _port = details.at(CS_PORT).to_int();
@@ -31,6 +32,11 @@ mirror_manager::mirror_manager(my_vector<my_string> details, int id,
 	
 	_full = full;
 	_empty = empty;
+		
+	if (search)
+		_resolver = &my_string::contains;
+	else
+		_resolver = &my_string::starts_with;
 }
 
 bool mirror_manager::init() {
@@ -94,7 +100,7 @@ void mirror_manager::run() {
         hf::read_fname(_sockfd, &fname, max);
         // We check to make sure that the path returned from
         // the content-server matched the one requested by the user
-        if (!fname.starts_with(_path)) {
+        if (!(fname.*_resolver)(_path.c_str())) {
             // cout << "File name " << fname << " doesn't start with " << _path << endl;
             continue;
         }
@@ -149,3 +155,7 @@ void mirror_manager::run() {
 	return;
 
 }
+
+my_string mirror_manager::get_addr() { return _addr; }
+
+int mirror_manager::get_port() { return _port; }

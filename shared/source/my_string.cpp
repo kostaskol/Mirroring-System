@@ -103,6 +103,29 @@ my_vector<my_string> my_string::split(const char *delim) {
     return list;
 }
 
+my_vector<my_string> my_string::split(char delim) {
+	my_vector<my_string> list;
+	
+	my_string tmp_str = "";
+	bool pushed = false;
+	for (int c = 0; c < (int) strlen(_str); c++) {
+		if (_str[c] == delim) {
+			list.push(tmp_str);
+			pushed = true;
+			tmp_str = "";
+		} else {
+			tmp_str += _str[c];
+			pushed = false;
+		}
+	}
+	
+	if (!pushed) {
+		list.push(tmp_str);
+	}
+	
+	return list;
+}
+
 my_string my_string::substr(int start, int length) {
     if ((start + length) >= (int) _len) {
         throw std::runtime_error("Bad length");
