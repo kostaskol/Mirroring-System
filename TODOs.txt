@@ -1,4 +1,0 @@
-1. Notify the user about any content-servers that are not running
-2. TEST TEST TEST TEST with as many different parameters as possible
-3. Run it on the linux machine: After cleaning the code and removing any un-needed files, scp it to a linux machine and TEST TEST TEST again
-	(Let's get a 100 on this one ;) )
