@@ -15,7 +15,6 @@ int g_clientfd;
 
 mirror_server::mirror_server(cmd_parser *args) {
     _port = args->get_port();
-	cout << "Port is " << _port << endl;
     _outp_path = args->get_outp_path();
     _worker_num = args->get_thread_num();
 	_debug = args->is_debug();
@@ -48,7 +47,7 @@ mirror_server::mirror_server(cmd_parser *args) {
 	pthread_cond_init(&_ack_cond, nullptr);
 	
 	
-	_mtx_init();
+	_var_init();
 	_workers = new pthread_t[_worker_num];
 	for (int i = 0; i < _worker_num; i++) {
 		worker *w = new worker(&_data_queue, &_e_mtx, &_f_mtx, &_rw_mtx,
@@ -65,68 +64,46 @@ mirror_server::mirror_server(cmd_parser *args) {
 	
 }
 
-void mirror_server::_mtx_init() {
-	pthread_mutex_lock(&_rw_mtx);
-	{
-		pthread_mutex_destroy(&_rw_mtx);
-		pthread_mutex_init(&_rw_mtx, nullptr);
-	}
-	pthread_mutex_unlock(&_rw_mtx);
-	
+void mirror_server::_var_init() {
+	// Initialise all of the shared variables
+	// to their default values
 	pthread_mutex_lock(&_f_mtx);
 	{
-		pthread_mutex_destroy(&_f_mtx);
-		pthread_mutex_init(&_f_mtx, nullptr);
-		pthread_cond_destroy(&_f_cond);
-		pthread_cond_init(&_f_cond, nullptr);
 		_full = false;
 	}
 	pthread_mutex_unlock(&_f_mtx);
 	
 	pthread_mutex_lock(&_e_mtx);
 	{
-		pthread_mutex_destroy(&_e_mtx);
-		pthread_mutex_init(&_e_mtx, nullptr);
-		pthread_cond_destroy(&_e_cond);
-		pthread_cond_init(&_e_cond, nullptr);
 		_empty = true;
 	}
 	pthread_mutex_unlock(&_e_mtx);
 	
 	pthread_mutex_lock(&_done_mtx);
 	{
-		pthread_mutex_destroy(&_done_mtx);
-		pthread_mutex_init(&_done_mtx, nullptr);
 		_done = false;
 	}
 	pthread_mutex_unlock(&_done_mtx);
 	
 	pthread_mutex_lock(&_q_done_mtx);
 	{
-		pthread_mutex_destroy(&_q_done_mtx);
-		pthread_mutex_init(&_q_done_mtx, nullptr);
-		pthread_cond_destroy(&_q_done_cond);
-		pthread_cond_init(&_q_done_cond, nullptr);
 		_q_done = 0;
 	}
 	pthread_mutex_unlock(&_q_done_mtx);
 	
 	pthread_mutex_lock(&_bytes_mtx);
 	{
-		pthread_mutex_destroy(&_bytes_mtx);
-		pthread_mutex_init(&_bytes_mtx, nullptr);
 		_bytes_recvd = 0;
 	}
 	pthread_mutex_unlock(&_bytes_mtx);
 	
 	pthread_mutex_lock(&_file_mtx);
 	{
-		pthread_mutex_destroy(&_file_mtx);
-		pthread_mutex_init(&_file_mtx, nullptr);
 		_files_recvd = 0;
 	}
 	pthread_mutex_unlock(&_file_mtx);
 }
+
 
 void mirror_server::init() {
     struct sockaddr_in server;
@@ -162,19 +139,12 @@ void mirror_server::run() {
     sockaddr_in client;
 	do {
 		
-		pthread_mutex_lock(&_ack_mtx);
-		{
-			pthread_mutex_destroy(&_ack_mtx);
-			pthread_mutex_init(&_ack_mtx, nullptr);
-			pthread_cond_destroy(&_ack_cond);
-			pthread_cond_init(&_ack_cond, nullptr);
-			_ack = false;
-		}
-		pthread_mutex_unlock(&_ack_mtx);
+		
 		
 	    socklen_t len = sizeof(struct sockaddr_in);
 		int clientfd;
-		cerr << "Listening to port " << _port << endl;
+		if (_debug)
+			cerr << "DEBUG --::-- Listening to port " << _port << endl;
 	    if ((clientfd = accept(_sockfd, (sockaddr *) &client, &len)) < 0) {
 	        perror("accept");
 	        exit(-1);
@@ -220,9 +190,23 @@ void mirror_server::run() {
 	        pthread_join(_managers[count], nullptr);
 	    }
 		
-		cout << "DEBUG --::-- All mirrorManagers died" << endl;
+		if (_debug)
+			cout << "DEBUG --::-- All mirrorManagers died" << endl;
 		
-		cout << "DEBUG --::-- Unblocking and joining worker threads!" << endl;
+		if (_debug)
+			cout << "DEBUG --::-- Unblocking and joining worker threads!" 
+				 << endl;
+				 
+				 
+		 pthread_mutex_lock(&_ack_mtx);
+ 		{
+ 			pthread_mutex_destroy(&_ack_mtx);
+ 			pthread_mutex_init(&_ack_mtx, nullptr);
+ 			pthread_cond_destroy(&_ack_cond);
+ 			pthread_cond_init(&_ack_cond, nullptr);
+ 			_ack = false;
+ 		}
+ 		pthread_mutex_unlock(&_ack_mtx);
 		// The boolean variables _empty and _done
 		// share the same mutex
 		pthread_mutex_lock(&_e_mtx);
@@ -236,9 +220,11 @@ void mirror_server::run() {
 		pthread_mutex_lock(&_q_done_mtx);
 		{
 			while(_q_done < _worker_num) {
-				cerr << "Server waiting for signal!" << endl;
+				if (_debug)
+					cerr << "Server waiting for signal!" << endl;
 				pthread_cond_wait(&_q_done_cond, &_q_done_mtx);
-				cerr << "Signal arrived and _q_done is " << _q_done << endl;
+				if (_debug)
+					cerr << "Signal arrived and _q_done is " << _q_done << endl;
 			}
 			cerr << "Server got signal and is exiting" << endl;
 		}
@@ -262,7 +248,7 @@ void mirror_server::run() {
 	    send(clientfd, msg.c_str(), msg.length(), 0);
 	    close(clientfd);
 		
-		_mtx_init();
+		_var_init();
 		
 		pthread_mutex_lock(&_ack_mtx);
 		{
@@ -271,7 +257,7 @@ void mirror_server::run() {
 		}
 		pthread_mutex_unlock(&_ack_mtx);
 		
-		sleep(1);
+		// sleep(1);
 		cout << "Session ended" << endl;
 	} while (true);
 }

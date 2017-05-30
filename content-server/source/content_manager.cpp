@@ -87,6 +87,7 @@ void content_manager::run() {
 		ssize_t read = recv(client_fd, buffer, 1023, 0);
 		buffer[read] = '\0';
 		my_string msg = buffer;
+		delete[] buffer;
 		if (_debug) cout << "Got message " << msg << endl;
 		// Figure out the components of the message
 		my_vector<my_string> cmd = msg.split(':');
@@ -235,6 +236,7 @@ void content_manager::_do_fetch(int clientfd, my_string path) {
 		} else {
 			cout << "\rPart [" << block + 1 << "/" << blocks + 1 << "]" << flush;
 		}
+		delete[] buffer;
     }
 	hf::recv_ok(clientfd);
 

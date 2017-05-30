@@ -36,7 +36,7 @@ private:
 	bool _search;
 	my_vector<my_string> _down_serv;
 
-    void _mtx_init();
+    void _var_init();
 public:
     mirror_server(cmd_parser *args);
 
