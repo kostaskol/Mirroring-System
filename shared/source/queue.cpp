@@ -60,7 +60,7 @@ T queue<T>::pop() {
 }
 
 template <typename T>
-bool queue<T>::full() { return _size == _max; }
+bool queue<T>::full() { return (int) _size == _max; }
 
 template <typename T>
 T &queue<T>::peek() {

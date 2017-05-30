@@ -18,11 +18,13 @@ mirror_server::mirror_server(cmd_parser *args) {
     _outp_path = args->get_outp_path();
     _worker_num = args->get_thread_num();
 	_search = args->is_search();
+	
     if (_worker_num < 1) {
         cerr << "Bad input for thread number: " << _worker_num << endl;
         exit(-1);
     }
 	
+	// Initialise the shared variables to their default values
 	_bytes_recvd = 0;
 	_files_recvd = 0;
 	_q_done = 0;
@@ -32,6 +34,7 @@ mirror_server::mirror_server(cmd_parser *args) {
 	_done = false;
 	_ack = false;
 	
+	// Initialise all of the mutexes and mutex conditionals
 	pthread_mutex_init(&_rw_mtx, nullptr);
 	pthread_mutex_init(&_f_mtx, nullptr);
 	pthread_mutex_init(&_e_mtx, nullptr);
@@ -46,21 +49,18 @@ mirror_server::mirror_server(cmd_parser *args) {
 	pthread_cond_init(&_ack_cond, nullptr);
 	
 	
-	_var_init();
+	// Create <_worker_num> worker threads
 	_workers = new pthread_t[_worker_num];
 	for (int i = 0; i < _worker_num; i++) {
 		worker *w = new worker(&_data_queue, &_e_mtx, &_f_mtx, &_rw_mtx,
 			&_bytes_mtx, &_file_mtx, &_done_mtx, &_q_done_mtx, &_ack_mtx,
 			&_q_done_cond, &_e_cond, &_f_cond, &_ack_cond, &_done, &_q_done, 
-			&_empty, 
-			&_full, &_ack, &_bytes_recvd, &_files_recvd, _outp_path);
+			&_empty, &_full, &_ack, &_bytes_recvd, &_files_recvd, _outp_path);
 		pthread_attr_t attr;
 		pthread_attr_init(&attr);
 		pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
 		pthread_create(&_workers[i], &attr, start_worker, w);
 	}
-	cerr << "Created threads" << endl;
-	
 }
 
 void mirror_server::_var_init() {
@@ -134,20 +134,20 @@ void mirror_server::init() {
 
 void mirror_server::run() {
 	// Workers will loop until done becomes true
-	cerr << "Running" << endl;
     sockaddr_in client;
 	do {
-		
-		
-		
 	    socklen_t len = sizeof(struct sockaddr_in);
 		int clientfd;
 	    if ((clientfd = accept(_sockfd, (sockaddr *) &client, &len)) < 0) {
 	        perror("accept");
 	        exit(-1);
 	    }
+		
+		// We set the global client fd variable (used to notify the 
+		// client of any errors)
 		g_clientfd = clientfd;
 
+		// Receive the number of content servers we are to contact
 	    char *buffer = new char[1024];
 	    ssize_t read = recv(clientfd, buffer, 1023, 0);
 	    buffer[read] = '\0';
@@ -156,6 +156,9 @@ void mirror_server::run() {
 	    int vecs = atoi(buffer);
 
 	    delete[] buffer;
+		
+		// Create a vector of vectors that will hold all of the information
+		// about the content servers
 	    my_vector<my_vector<my_string>> vec;
 	    for (int i = 0; i < vecs; i++) {
 	        my_vector<my_string> tmp;
@@ -163,14 +166,15 @@ void mirror_server::run() {
 	            buffer = new char[1024];
 	            read = recv(clientfd, buffer, 1023, 0);
 	            buffer[read] = '\0';
+				
 	            send(clientfd, "OK", 2, 0);
 	            tmp.push(buffer);
 	            delete[] buffer;
-
 	        }
 	        vec.push(tmp);
 	    }
 
+		// Create the appropriate amount of mirror managers
 	    _managers = new pthread_t[vec.size()];
 	    for (int i = 0; i < (int) vec.size(); i++) {
 	        my_vector<my_string> tmp_vec = vec.at(i);
@@ -183,19 +187,21 @@ void mirror_server::run() {
 	        pthread_create(&_managers[i], &attr, start_manager, man);
 	    }
 	   
+		// Wait for *all* of the mirror managers to finish
 	    for (int count = 0; count < (int) vec.size(); count++) {
 	        pthread_join(_managers[count], nullptr);
 	    }
 		
-		 pthread_mutex_lock(&_ack_mtx);
+		// Unset the acknowledged flag
+		pthread_mutex_lock(&_ack_mtx);
  		{
- 			pthread_mutex_destroy(&_ack_mtx);
- 			pthread_mutex_init(&_ack_mtx, nullptr);
- 			pthread_cond_destroy(&_ack_cond);
- 			pthread_cond_init(&_ack_cond, nullptr);
  			_ack = false;
  		}
  		pthread_mutex_unlock(&_ack_mtx);
+		
+		// Notify the worker threads that there will be no new elements
+		// pushed into the queue
+		
 		// The boolean variables _empty and _done
 		// share the same mutex
 		pthread_mutex_lock(&_e_mtx);
@@ -205,7 +211,7 @@ void mirror_server::run() {
 		}
 		pthread_mutex_unlock(&_e_mtx);
 		
-		// Wait until a worker thread raises a queue done signal
+		// Wait for all worker threads to finish
 		pthread_mutex_lock(&_q_done_mtx);
 		{
 			while(_q_done < _worker_num) {
@@ -214,6 +220,7 @@ void mirror_server::run() {
 		}
 		pthread_mutex_unlock(&_q_done_mtx);
 
+		// Send the resulting statistics to the client
 	    my_string msg = "OK:";
 	    msg += _files_recvd;
 	    msg += ":";
@@ -232,8 +239,12 @@ void mirror_server::run() {
 	    send(clientfd, msg.c_str(), msg.length(), 0);
 	    close(clientfd);
 		
+		// Re-initialise the variables
 		_var_init();
 		
+		// After doing that, notify the worker threads
+		// that we have acknowledged their completion and that they may 
+		// continue
 		pthread_mutex_lock(&_ack_mtx);
 		{
 			_ack = true;
@@ -248,6 +259,9 @@ void mirror_server::run() {
 void *start_manager(void *arg) {
     mirror_manager *man = (mirror_manager *) arg;
     if (!man->init()) {
+		// If a connection to a content server 
+		// could not be made, notify the client
+		// and exit
 		my_string msg = "ERR:";
 		msg += man->get_addr();
 		msg += ":";
@@ -267,7 +281,8 @@ void *start_manager(void *arg) {
 
 void *start_worker(void *arg) {
     worker *w = (worker *) arg;
-    stats *statistics = w->run();
+    w->run();
+	// This code should never run
     delete w;
-    pthread_exit(statistics);
+    pthread_exit(nullptr);
 }

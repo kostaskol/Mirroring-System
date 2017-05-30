@@ -72,7 +72,6 @@ void content_server::run() {
     }
 	// Create <thread_num> threads that will handle all connections
 	pthread_t *tids = new pthread_t[_thread_num];
-	cout << "Master full " << &_full << endl;
 	for (int i = 0; i < _thread_num; i++) {
 		content_manager *man = new content_manager(&_q_mtx, &_h_mtx, &_e_mtx,
 							&_f_mtx, &_e_cond, &_f_cond, &_queue, &_h_table,
@@ -92,7 +91,8 @@ void content_server::run() {
             exit(-1);
         }
 
-        // 
+        // In case the queue is full, wait until a 
+		// content manager has popped an element before continuing
 		pthread_mutex_lock(&_f_mtx);
 		{
 			while (_full) {
@@ -101,7 +101,6 @@ void content_server::run() {
 		}
 		pthread_mutex_unlock(&_f_mtx);
 	
-		// Wait until the queue is not full
 		pthread_mutex_lock(&_q_mtx);
 		{
 			_queue.push(client_fd);

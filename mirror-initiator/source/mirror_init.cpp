@@ -79,7 +79,6 @@ void mirror_init::run() {
 			// We await for a message from the server (we keep the 
 			// connection alive). The message can be one of the above.
             char *buffer = new char[1024];
-            cout << "Reading..." << endl;
             ssize_t read = recv(_sockfd, buffer, 1023, 0);
             if (read == 0) {
                 cerr << "The server has abruptly closed the connection. " 
@@ -88,6 +87,7 @@ void mirror_init::run() {
             }
             buffer[read] = '\0';
             resp += buffer;
+			delete[] buffer;
             // While the response doesn't contain the character ';' in it,
             // we continue reading from the stream
         } while (!resp.contains(";"));

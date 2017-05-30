@@ -74,14 +74,19 @@ bool mirror_manager::init() {
 }
 
 void mirror_manager::run() {
+	// Create the request to the content server
     my_string cmd = "LIST:";
-    cmd += _id;
+	// Our unique ID for the content server is
+	// our thread ID
+	// There is an extremely small possibility that
+	// it collides with another ID
+    cmd += (int) pthread_self();
     cmd += ":";
     cmd += _delay;
-    char *buf;
     send(_sockfd, cmd.c_str(), cmd.length(), 0);
 
-    buf = new char[1024];
+	// Read the amount of files that we will receive
+    char *buf = new char[1024];
     ssize_t read = recv(_sockfd, buf, 1023, 0);
     buf[read] = '\0';
 
@@ -89,6 +94,7 @@ void mirror_manager::run() {
     delete[] buf;
     hf::send_ok(_sockfd);
 
+	// For each file, read its name
     for (int file = 0; file < files; file++) {
         buf = new char[1024];
         read = recv(_sockfd, buf, 1023, 0);
@@ -98,27 +104,37 @@ void mirror_manager::run() {
         hf::send_ok(_sockfd);
         my_string fname;
         hf::read_fname(_sockfd, &fname, max);
+		
         // We check to make sure that the path returned from
         // the content-server matched the one requested by the user
+		
+		// If the search functionality is enabled, 
+		// we check whether the received file path
+		// *contains* the path requested by the user
+		// If it's not, we check if the received file path 
+		// *starts* with the path requested
         if (!(fname.*_resolver)(_path.c_str())) {
-            // cout << "File name " << fname << " doesn't start with " << _path << endl;
             continue;
         }
 
+		// Create the string that will be pushed into the queue
+		// Format: <file_path>:<address>:<port>:<id>
         my_string full_name = fname;
         full_name += ":";
         full_name += _addr;
         full_name += ":";
         full_name += _port;
         full_name += ":";
-        full_name += _id;
+        full_name += (int) pthread_self();
         cout << "Pushing file " << fname << " to queue" << endl;
-        //cout << "MirrorServer #" << _id << ": Waiting on full_mtx" << endl;
+		
+		// Wait for the queue to not be full
 		pthread_mutex_lock(_f_mtx);
 		{
 			while (*_full)
 				pthread_cond_wait(_f_cond, _f_mtx);
-		
+			
+			// Gain access to our critical section
 			pthread_mutex_lock(_rw_mtx);
 			{
 				try {
@@ -126,10 +142,14 @@ void mirror_manager::run() {
 				} catch (runtime_error &e) {
 					cerr << "Runtime error. Queue is full!" << endl;
 				}
+				
+				// We still have the lock on the full mutex
 				*_full = _q->full();
 			}
 			pthread_mutex_unlock(_rw_mtx);
 			
+			// Signal one worker thread 
+			// that the queue is not empty anymore
 			pthread_mutex_lock(_e_mtx);
 			{
 				*_empty = false;
@@ -140,17 +160,8 @@ void mirror_manager::run() {
 		}
 		pthread_mutex_unlock(_f_mtx);
     }
-
-    // The thread signals the master thread that it's about to finish
-    /*pthread_cond_signal(_cond);
-    // Then it locks the done mutex before it sets the tid
-    // to its thread id (we don't want another thread to change this before it's done
-    pthread_mutex_lock(_done_mtx);
-    cout << "Setting Thread id" << endl;
-    *_tid = pthread_self();
-    // Unlock the done mutex and exit
-    pthread_mutex_unlock(_done_mtx);*/
-
+	
+	// After that, we can simply return
     cout << "DEBUG --::-- MirrorServer #" << _id << " dying!" << endl;
 	return;
 

@@ -36,19 +36,22 @@ void cmd_parser::parse(int argc, char **argv) {
                     if (arg + 1 < argc) {
                         _port = atoi(argv[++arg]);
                     } else {
-                        err("Error while parsing command line arguments", argv[0]);
+                        err("Error while parsing command line arguments", 
+							argv[0]);
                     }
                 } else if (argument == "-d") {
                     if (arg + 1 < argc) {
                         _path_name = argv[++arg];
                     } else {
-                        err("Error while parsing command line arguments", argv[0]);
+                        err("Error while parsing command line arguments", 
+							argv[0]);
                     }
                 } else if (argument == "-w") {
 					if (arg + 1 < argc) {
 						_t_num = atoi(argv[++arg]);
 					} else {
-						err("Error while parsing command line arguments", argv[0]);
+						err("Error while parsing command line arguments", 
+							argv[0]);
 					}
 				} else {
                     my_string err_msg = "Unknown command line argument ";
@@ -69,20 +72,22 @@ void cmd_parser::parse(int argc, char **argv) {
                     if (arg + 1 < argc) {
                         _address = argv[++arg];
                     } else {
-                        err("Error while parsing command line arguments", argv[0]);
+                        err("Error while parsing command line arguments", 
+							argv[0]);
                     }
                 } else if (argument == "-p") {
                     if (arg + 1 < argc) {
                         _port = atoi(argv[++arg]);
                     } else {
-                        err("Error while parsing command line arguments", argv[0]);
+                        err("Error while parsing command line arguments", 
+							argv[0]);
                     }
                 } else if (argument == "-s") {
                     if (arg + 1 < argc) {
                         my_string tmp_str = argv[++arg];
-                        my_vector<my_string> com_vec = tmp_str.split((char *) ",");
+                        my_vector<my_string> com_vec = tmp_str.split(',');
                         for (int i = 0; i < (int) com_vec.size(); i++) {
-                            _cserver_details.push(com_vec.at(i).split((char *)":"));
+                            _cserver_details.push(com_vec.at(i).split(':'));
                         }
                     } else {
                         err("Error while parsing command line arguments", argv[0]);
@@ -143,13 +148,14 @@ void cmd_parser::_helper(char *exec_name) {
         case MODE_MS: {
             cout << "-p: Specifies the port that the server will be" 
 				 << " listening to" << endl;
-            cout << "-m: Specifies the directory name that the mirrored " 
+            cout << "-m: Specifies the directory name in which the mirrored " 
 				 << "contents will be stored" << endl;
             cout << "\t[Note] Only the last directory of the path will be " 
 				 << "created automatically." << endl;
             cout << "-w: Specifies the number of worker threads";
-			cout << "-s: The server will search through the file list to " 
-				 << "find the requested file" << endl;
+			cout << "-s: Enables the search functionality. " 
+				 << "(The server will search through the file list to " 
+				 << "find the requested file)" << endl;
             break;
         }
 
@@ -161,9 +167,9 @@ void cmd_parser::_helper(char *exec_name) {
 				 << "of the ContentServers" << endl;
             cout << "\t[Note] The format *must* be the following:" << endl;
             cout << "\t\t<ContentServerAddress1>:<ContentServerPort1>:" 
-				 << "<Directory or filename1>,<Delay1>,"
-            	 << "<<ContentServerAddress2>:<ContentServerPort2>:" 
-				 << "<Directory or filename2>,<Delay2>,..." << endl;
+				 << "<Directory or filename1>:<Delay1>,"
+            	 << "<ContentServerAddress2>:<ContentServerPort2>:" 
+				 << "<Directory or filename2>:<Delay2>,..." << endl;
             break;
         }
 
@@ -172,7 +178,7 @@ void cmd_parser::_helper(char *exec_name) {
 				 << "should be listening to" << endl;
             cout << "-d: Directory or Filename that the ContentServer " 
 				 << "will make available to *all* valid requests" << endl;
-			cout << "-w: Number of open threads running" << endl;
+			cout << "-w: Number of threads that will handle requests" << endl;
             break;
         }
 

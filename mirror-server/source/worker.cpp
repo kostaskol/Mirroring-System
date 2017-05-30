@@ -22,6 +22,8 @@ worker::worker(queue<my_string> *q, pthread_mutex_t *e_mtx,
 	bool *done, int *q_done,
 	bool *empty, bool *full, bool *ack, int *bytes_total, int *files_total, 
 	my_string path) {
+		
+	// Initialise the mutex, conditions and mutex conditions
     _q = q;
     _path = path;
     _done = done;
@@ -44,36 +46,41 @@ worker::worker(queue<my_string> *q, pthread_mutex_t *e_mtx,
 	_done = done;
 	_ack = ack;
 	
+	// (NOTE: These are pointers)
 	_bytes_total = bytes_total;
 	_files_total = files_total;
 }
 
 
-stats *worker::run() {
-    cout << "DEBUG --::-- Worker " << pthread_self() << " started!" << endl;
+void worker::run() {
 	while (true) {
-	
-		// TODO: Still need to figure out how to know that it's the end the session
 		bool end = false;
 	    do {
 			my_string details;
-			// We'll need to do a broadcast here
+			
+			// Wait until either the queue is not empty
+			// or the mirror servers are done and we can keep 
+			// popping from the queue until empty
 			pthread_mutex_lock(_e_mtx);
 			{
 				while (*_empty && !*_done)
 					pthread_cond_wait(_e_cond, _e_mtx);
 			}
+			
+			// If it wasn't the done flag that allowed us through
 			if (!*_done) {
-				{
+				
 					pthread_mutex_lock(_rw_mtx);
 					{
+						// Get an element from the queue 
+						// and set the empty flag appropriately
 						details = _q->pop();
 						*_empty = _q->empty();
 						
 					}
 					pthread_mutex_unlock(_rw_mtx);
-				}
 				pthread_mutex_unlock(_e_mtx);
+				
 				// Signal the full flag
 				pthread_mutex_lock(_f_mtx);
 				{
@@ -82,20 +89,28 @@ stats *worker::run() {
 				}
 				pthread_mutex_unlock(_f_mtx);
 				
-				
+				// Break the content server details into usable data
 		        my_string addr, path;
 		        int port, id;
 		        try {
 		            _get_info(&path, &addr, &port, &id, details);
 		        } catch (runtime_error &e) {
-		            cerr << "Worker thread #" << pthread_self() << " Malformed string from queue: " << details << endl;
+		            cerr << "Worker #" << pthread_self() 
+						 << " Malformed string from queue: " << details << endl;
 		            continue;
 		        }
 
-
-		        _make_con(addr, port);
+				// Connect to the content server
+		        if (!_make_con(addr, port)) {
+					cerr << "Worker #" << pthread_self()
+						 << " could connect to server " << addr << ":" << port
+						 << endl;
+				}
+				
+				// 
 		        if (!_fetch(path, addr, port, id)) {
-					cout << "Fetch returned false. Continuing" << endl;
+					cerr << "Worker #" << pthread_self() 
+						 << " fetch returned false. Continuing" << endl;
 				}
 				
 				close(_sockfd);
@@ -124,18 +139,26 @@ stats *worker::run() {
 					   continue;
 				   }
 
-
-				   // This is standard so it remains
-				   _make_con(addr, port);
-				   _fetch(path, addr, port, id);
-				   
-				   close(_sockfd);
+				   if (!_make_con(addr, port)) {
+					cerr << "Worker #" << pthread_self()
+						 << " could connect to server " << addr << ":" << port
+						 << endl;
+					}
 					
+					// 
+			        if (!_fetch(path, addr, port, id)) {
+						cerr << "Worker #" << pthread_self() 
+							 << " fetch returned false. Continuing" << endl;
+					}
+					
+					close(_sockfd);
+					continue;
 			   } while (true);
 		   }
 		} while (!end);
 		// At this point we are done with the mirror-initiator request
-		cerr << "Worker #" << pthread_self() << " done with queue" << endl;
+		
+		// Notify the master thread that we are done
 		pthread_mutex_lock(_q_done_mtx);
 		{
 			(*_q_done)++;
@@ -143,24 +166,23 @@ stats *worker::run() {
 		}
 		pthread_mutex_unlock(_q_done_mtx);
 		
-		// Wait for the master thread to wake before continuing
-		cerr << "Thread " << pthread_self() << " Waiting on acknowledgement" << endl;
+		// Wait for acknowledgement from the master thread
 		pthread_mutex_lock(_ack_mtx);
 		{
 			while (!*_ack)
 				pthread_cond_wait(_ack_cond, _ack_mtx);
 		}
-		cerr << "Thread #" << pthread_self() << " Waited on acknowledgement" << endl;
 		pthread_mutex_unlock(_ack_mtx);
 	}
 }
 
 bool worker::_fetch(my_string path, my_string addr, int port, int id) {
+	// Prepare the request
+	// Format: FETCH:<path>:<id>
     my_string fetcher = "FETCH:";
     fetcher += path;
     fetcher += ":";
     fetcher += id;
-    cout << "Thread #" << pthread_self() << " fetching " << fetcher << endl;
     send(_sockfd, fetcher.c_str(), fetcher.length(), 0);
 
     // Read amount of bytes to be sent
@@ -168,10 +190,10 @@ bool worker::_fetch(my_string path, my_string addr, int port, int id) {
 	tmp_name += "/";
 	tmp_name += addr; tmp_name += "-"; tmp_name += port;
 	tmp_name += path;
+	// Create the path to the file
 	hf::mk_path(tmp_name);
 	
 	// Receive the amount of bytes that will be transfered
-    ofstream outp(tmp_name.c_str(), ios::binary | ios::out);
     char *buffer = new char[1024];
     ssize_t read = recv(_sockfd, buffer, 1023, 0);
 	if (read == 0) {
@@ -183,8 +205,14 @@ bool worker::_fetch(my_string path, my_string addr, int port, int id) {
     int max_bytes = atoi(buffer);
     delete[] buffer;
     hf::send_ok(_sockfd);
+	
+	// Create the file
+	ofstream outp(tmp_name.c_str(), ios::binary | ios::out);
 	int bytes = 0;
     int bytes_overall = 0;
+	
+	// Receive all of the binary data of the file
+	// in blocks of 1024 bytes
 	do {
 		buffer = new char[1024];
 		read = recv(_sockfd, buffer, 1024, 0);
@@ -196,23 +224,27 @@ bool worker::_fetch(my_string path, my_string addr, int port, int id) {
 	
 	hf::send_ok(_sockfd);
 	
+	// Add the bytes we just read to the
+	// total bytes
 	pthread_mutex_lock(_b_mtx);
 	{
 		*_bytes_total += bytes;
 	}
 	pthread_mutex_unlock(_b_mtx);
 	
+	// Increase the files received by one
 	pthread_mutex_lock(_file_mtx);
 	{
 		(*_files_total)++;
 	}
 	pthread_mutex_unlock(_file_mtx);
-	cout << "Thread #" << pthread_self() << " fetched" << endl;
     return true;
 }
 
 
 bool worker::_make_con(my_string addr, int port) {
+	// Creates a connection to the content server 
+	// and sets the _sockfd member variable
     struct sockaddr_in remote_server;
     struct hostent *server;
 
@@ -243,7 +275,9 @@ bool worker::_make_con(my_string addr, int port) {
     return true;
 }
 
-void worker::_get_info(my_string *path, my_string *addr, int *port, int *id, my_string &str) {
+void worker::_get_info(my_string *path, my_string *addr, int *port, int *id, 
+	my_string &str) {
+	// Converts a string into usable data
     my_vector<my_string> vec = str.split(':');
     *path = vec.at(0);
     *addr = vec.at(1);

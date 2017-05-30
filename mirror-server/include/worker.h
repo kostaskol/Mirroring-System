@@ -35,7 +35,7 @@ public:
 	bool *empty, bool *full, bool *ack, int *bytes_total, int *files_total, 
 	my_string path);
 
-    stats *run();
+    void run();
 
 };
 
