@@ -17,7 +17,6 @@ mirror_server::mirror_server(cmd_parser *args) {
     _port = args->get_port();
     _outp_path = args->get_outp_path();
     _worker_num = args->get_thread_num();
-	_debug = args->is_debug();
 	_search = args->is_search();
     if (_worker_num < 1) {
         cerr << "Bad input for thread number: " << _worker_num << endl;
@@ -54,7 +53,7 @@ mirror_server::mirror_server(cmd_parser *args) {
 			&_bytes_mtx, &_file_mtx, &_done_mtx, &_q_done_mtx, &_ack_mtx,
 			&_q_done_cond, &_e_cond, &_f_cond, &_ack_cond, &_done, &_q_done, 
 			&_empty, 
-			&_full, &_ack, &_bytes_recvd, &_files_recvd, _outp_path, &_debug);
+			&_full, &_ack, &_bytes_recvd, &_files_recvd, _outp_path);
 		pthread_attr_t attr;
 		pthread_attr_init(&attr);
 		pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
@@ -143,8 +142,6 @@ void mirror_server::run() {
 		
 	    socklen_t len = sizeof(struct sockaddr_in);
 		int clientfd;
-		if (_debug)
-			cerr << "DEBUG --::-- Listening to port " << _port << endl;
 	    if ((clientfd = accept(_sockfd, (sockaddr *) &client, &len)) < 0) {
 	        perror("accept");
 	        exit(-1);
@@ -179,7 +176,7 @@ void mirror_server::run() {
 	        my_vector<my_string> tmp_vec = vec.at(i);
 	        mirror_manager *man = new mirror_manager(tmp_vec, i, &_data_queue, 
 				&_e_mtx, &_f_mtx, &_rw_mtx, &_e_cond, &_f_cond, 
-				&_full, &_empty, _debug, _search);
+				&_full, &_empty, _search);
 	        pthread_attr_t attr;
 	        pthread_attr_init(&attr);
 	        pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
@@ -190,14 +187,6 @@ void mirror_server::run() {
 	        pthread_join(_managers[count], nullptr);
 	    }
 		
-		if (_debug)
-			cout << "DEBUG --::-- All mirrorManagers died" << endl;
-		
-		if (_debug)
-			cout << "DEBUG --::-- Unblocking and joining worker threads!" 
-				 << endl;
-				 
-				 
 		 pthread_mutex_lock(&_ack_mtx);
  		{
  			pthread_mutex_destroy(&_ack_mtx);
@@ -220,13 +209,8 @@ void mirror_server::run() {
 		pthread_mutex_lock(&_q_done_mtx);
 		{
 			while(_q_done < _worker_num) {
-				if (_debug)
-					cerr << "Server waiting for signal!" << endl;
 				pthread_cond_wait(&_q_done_cond, &_q_done_mtx);
-				if (_debug)
-					cerr << "Signal arrived and _q_done is " << _q_done << endl;
 			}
-			cerr << "Server got signal and is exiting" << endl;
 		}
 		pthread_mutex_unlock(&_q_done_mtx);
 
@@ -257,7 +241,6 @@ void mirror_server::run() {
 		}
 		pthread_mutex_unlock(&_ack_mtx);
 		
-		// sleep(1);
 		cout << "Session ended" << endl;
 	} while (true);
 }
@@ -278,7 +261,6 @@ void *start_manager(void *arg) {
 		pthread_exit(0);
 	}
     man->run();
-	cout << "Manager returned!!!!!" << endl;
     delete man;
     pthread_exit(0);
 }

@@ -58,7 +58,8 @@ void mirror_init::run() {
         // each content-server
         for (size_t s_det = 0; s_det < 4; s_det++) {
             my_vector<my_string> tmp_vec = _cservers.at(server);
-            write(_sockfd, tmp_vec.at(s_det).c_str(), tmp_vec.at(s_det).length());
+            write(_sockfd, tmp_vec.at(s_det).c_str(), 
+					tmp_vec.at(s_det).length());
             hf::recv_ok(_sockfd);
         }
     }
@@ -81,7 +82,8 @@ void mirror_init::run() {
             cout << "Reading..." << endl;
             ssize_t read = recv(_sockfd, buffer, 1023, 0);
             if (read == 0) {
-                cerr << "The server has abruptly closed the connection. Exiting.." << endl;
+                cerr << "The server has abruptly closed the connection. " 
+					 << "Exiting.." << endl;
                 exit(-1);
             }
             buffer[read] = '\0';

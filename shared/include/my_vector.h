@@ -1,7 +1,7 @@
 #ifndef JMS_MY_VECTOR_H
 #define JMS_MY_VECTOR_H
 
-
+#include <iostream>
 #include <cstdlib>
 class my_string;
 // Simple resizable array template class

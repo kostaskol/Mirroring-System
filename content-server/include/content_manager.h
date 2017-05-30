@@ -15,7 +15,6 @@ private:
 	my_string _path;
 	bool *_empty;
 	bool *_full;
-	bool _debug;
 	
 	void _get_contents_cond(my_vector<my_string> *v, my_string path, 
 		my_string cond);
@@ -30,7 +29,7 @@ public:
 		pthread_mutex_t *e_mtx, pthread_mutex_t *f_mtx,
 		pthread_cond_t *e_cond, pthread_cond_t *f_cond,
 		queue<int> *q, hash_table<int> *hash, my_string path, bool *empty, 
-		bool *full, bool debug);
+		bool *full);
 		
 	content_manager(const content_manager &)=delete;
 	

@@ -7,7 +7,6 @@ using namespace std;
 
 cmd_parser::cmd_parser(int mode) {
     _mode = mode;
-	_debug = false;
 	_search = false;
 }
 
@@ -51,8 +50,6 @@ void cmd_parser::parse(int argc, char **argv) {
 					} else {
 						err("Error while parsing command line arguments", argv[0]);
 					}
-				} else if (argument == "--debug") {
-					_debug = true;
 				} else {
                     my_string err_msg = "Unknown command line argument ";
                     err_msg += argv[1];
@@ -90,8 +87,6 @@ void cmd_parser::parse(int argc, char **argv) {
                     } else {
                         err("Error while parsing command line arguments", argv[0]);
                     }
-                } else if (argument == "--debug") {
-					_debug = true;
 				} else {
                     my_string err_msg = "Unknown command line argument ";
                     err_msg += argv[1];
@@ -122,8 +117,6 @@ void cmd_parser::parse(int argc, char **argv) {
                     } else {
                         err("Error while parsing command line arguments", argv[0]);
                     }
-                } else if (argument == "--debug") {
-					_debug = true;
 				} else if (argument == "-s") {
 					_search = true;
 				} else {
@@ -146,8 +139,6 @@ void cmd_parser::parse(int argc, char **argv) {
 void cmd_parser::_helper(char *exec_name) {
     cout << "Help for " << exec_name << endl;
     cout << "Valid options: " << endl;
-	cout << "--debug: Debug mode. Will output most of the operations " 
-		 << "as it's doing them" << endl;
     switch (_mode) {
         case MODE_MS: {
             cout << "-p: Specifies the port that the server will be" 
@@ -157,6 +148,8 @@ void cmd_parser::_helper(char *exec_name) {
             cout << "\t[Note] Only the last directory of the path will be " 
 				 << "created automatically." << endl;
             cout << "-w: Specifies the number of worker threads";
+			cout << "-s: The server will search through the file list to " 
+				 << "find the requested file" << endl;
             break;
         }
 
@@ -203,7 +196,5 @@ my_vector<my_vector<my_string>> cmd_parser::get_cserver_details() {
 my_string cmd_parser::get_outp_path() { return _outp_path; }
 
 int cmd_parser::get_thread_num() { return _t_num; }
-
-bool cmd_parser::is_debug() { return _debug; }
 
 bool cmd_parser::is_search() { return _search; }

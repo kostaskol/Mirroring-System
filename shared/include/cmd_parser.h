@@ -10,7 +10,6 @@ private:
 
     // General
     int _port;
-	bool _debug;
 
     // For ContentServer
     my_string _path_name;
@@ -42,8 +41,6 @@ public:
     my_string get_outp_path();
 
     int get_thread_num();
-	
-	bool is_debug();
 	
 	bool is_search();
 

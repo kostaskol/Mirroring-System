@@ -16,7 +16,7 @@ content_manager::content_manager(pthread_mutex_t *mtx, pthread_mutex_t *h_mtx,
 	pthread_mutex_t *e_mtx, pthread_mutex_t *f_mtx,
 	pthread_cond_t *e_cond, pthread_cond_t *f_cond,
 	queue<int> *q, hash_table<int> *hash, my_string path, bool *empty, 
-	bool *full, bool debug) {
+	bool *full) {
 	_q_mtx = mtx;
 	_h_mtx = h_mtx;
 	_e_mtx = e_mtx;
@@ -28,36 +28,29 @@ content_manager::content_manager(pthread_mutex_t *mtx, pthread_mutex_t *h_mtx,
 	_path = path;
 	_empty = empty;
 	_full = full;
-	_debug = debug;
 }
 
 void content_manager::run() {
-	cout << "Slave full " << _full << endl;
 	signal(SIGPIPE, SIG_IGN);
 	while (true) {
 		int client_fd;
-		// Lock the stop flag mutex
-		cout << "Thread #" << pthread_self() << " Waiting on empty mutex" << endl;
+		// Lock the empty flag mutex
 		pthread_mutex_lock(_e_mtx);
 		{
 			// Wait until the queue isn't empty (flag raised by the master
 			// thread, lowered by a worker thread)
 			while (*_empty) {
-				cout << "Waiting on empty" << endl;
 				pthread_cond_wait(_e_cond, _e_mtx);
 			}
 			// Don't release the mutex yet. First get the element in the queue
 			// and then release it
-		}
-		
-		// The empty mutex is still locked here
-		{
 			pthread_mutex_lock(_q_mtx); 
 			{
 				try {
 					client_fd = _q->pop();
 				} catch (runtime_error &e) {
-					cout << "Caught exception" << endl;
+					cerr << "Manager #" << pthread_self() 
+						 << " queue was empty " << endl;
 					continue;
 				}
 
@@ -65,7 +58,6 @@ void content_manager::run() {
 				// If we have, set _empty to true
 				// (We already hold the empty mutex at this point)
 				*_empty = _q->empty();
-				// if (_q->empty()) *_empty = true;
 			}
 			pthread_mutex_unlock(_q_mtx);
 		}
@@ -88,7 +80,6 @@ void content_manager::run() {
 		buffer[read] = '\0';
 		my_string msg = buffer;
 		delete[] buffer;
-		if (_debug) cout << "Got message " << msg << endl;
 		// Figure out the components of the message
 		my_vector<my_string> cmd = msg.split(':');
 		try {
@@ -98,7 +89,7 @@ void content_manager::run() {
 					id = cmd.at(1);
 					delay = cmd.at(2);
 				} catch (runtime_error &e) {
-					if (_debug) cerr << "Client hasn't provided an ID" 
+					cerr << "Client hasn't provided an ID" 
 									<< " or a delay" << endl;
 					close(client_fd);
 					continue;
@@ -114,7 +105,8 @@ void content_manager::run() {
 				
 				// Send the list to the client
 				_do_list(client_fd);
-				cout << "Thread #" << pthread_self() << " done with list" << endl;
+				cout << "Thread #" << pthread_self() 
+					 << " done with list" << endl;
 			} else if (cmd.at(0) == "FETCH") {
 				// If it's a FETCH request
 				int delay;
@@ -122,20 +114,18 @@ void content_manager::run() {
 				try {
 					my_string id = cmd.at(2);
 				} catch (runtime_error &e) {
-					cerr << "User has sent us a malformed message "  << msg << endl;
+					cerr << "User has sent us a malformed message "  
+						 << msg << endl;
 					cmd.print();
 					continue;
 				}
 				// Find the delay for the given ID
-				cout << "Thread #" << pthread_self() << " Locking h_mtx" << endl;
 				pthread_mutex_lock(_h_mtx);
 				{
 					ex = _h_table->get_key(cmd.at(2), &delay);
 				}
-				cout << "Thread #" << pthread_self() << " unlocking h_mtx" << endl;
 				pthread_mutex_unlock(_h_mtx);
 				if (!ex) {
-					if (_debug) 
 					cerr << "Provided ID (" << cmd.at(2) 
 						 << ") doesn't exist in the hash table" << endl;
 					close(client_fd);
@@ -145,19 +135,16 @@ void content_manager::run() {
 				// Perform the given delay
 				// If it's 0 (the Client doesn't want us to wait)
 				// skip the call to sleep entirely
-				cout << "Thread #" << pthread_self() << " Sleeping" << endl;
 				if (delay != 0) sleep(delay);
 				
 				// Send the files to the client
-				cout << "Thread #" << pthread_self() << " Fetching!" << endl;
 				_do_fetch(client_fd, cmd.at(1));
-				cout << "Thread #" << pthread_self() << " done with fetch" << endl;
 			}
 		} catch (runtime_error &e) {
 			continue;
 		}
 
-		if (_debug) cout << "Thread #" << pthread_self() << " Closing the connnection!" << endl;
+		cout << "Closing the connnection" << endl;
 		close(client_fd);
 	}
 }
@@ -184,7 +171,7 @@ void content_manager::_do_list(int clientfd) {
         uint offs = 0;
         // For each part of the file name
         // send at most BLOCK_STR_SIZE characters
-        cout << "Sending name " << fname << endl;
+        cout << "Sending file path " << fname << endl;
         for (int file_part = 0; file_part < loops + 1; file_part++) {
             int curr_len = (fname.length() - offs) > BLOCK_STR_SIZE
                            ? BLOCK_STR_SIZE : ((int) fname.length() - offs);
@@ -199,14 +186,34 @@ void content_manager::_do_list(int clientfd) {
 
 void content_manager::_do_fetch(int clientfd, my_string path) {
     my_vector<my_string> corr = path.split(':');
+	/* As a very basic means of security
+	 * we don't allow the user to access files outside of the 
+	 * available folder
+	 * (
+	 * Namely: 
+	 * '..': which would take us to the previous folder
+	 * '~': which would unfold to a path relative to $HOME
+	 * )
+	 * It is obvious that the user will most likely
+	 * not get what they want (unless the "corrected" path agrees with the
+	 * 							provided one)
+	 */
+	// Remove unwanted strings from the path
     corr.remove(".");
     corr.remove("..");
     corr.remove("~");
+	// Create the path again
     path = corr.join('/');
     my_vector<my_string> list;
     my_string tmp_path = _path;
     tmp_path += "/";
     tmp_path += path;
+	
+	// Ask for a list of all of the files that match the path
+	// [Note] This remains from a previous version
+	// where the client was allowed to request entire directories
+	// however the time it would take to change it
+	// is simply not worth it
     _get_contents_cond(&list, tmp_path, path);
 
     // Send the name of each file
@@ -216,11 +223,14 @@ void content_manager::_do_fetch(int clientfd, my_string path) {
     // For each part of the file name
     // send at most BLOCK_STR_SIZE characters
 
+
+	// Figure out the file's size
     ifstream inp(fname.c_str(), ios::binary | ios::in);
     inp.seekg(0, ios::end);
     int file_length = (int) inp.tellg();
     inp.seekg(0, ios::beg);
 
+	// We will loop <blocks> times to get the entire file
     int blocks = file_length / BLOCK_RAW_SIZE;
 
     hf::send_num_blocks(clientfd, file_length);
@@ -230,11 +240,14 @@ void content_manager::_do_fetch(int clientfd, my_string path) {
     for (int block = 0; block < blocks + 1; block++) {
         char *buffer = new char[BLOCK_RAW_SIZE];
         inp.read(buffer, BLOCK_RAW_SIZE);
-        send(clientfd, buffer, BLOCK_RAW_SIZE, 0);
+		size_t read = inp.gcount();
+        send(clientfd, buffer, read, 0);
 		if (block == blocks) {
-			cout << "\rPart [" << block + 1 << "/" << blocks + 1 << "]" << endl;
+			// Use printf here because it's thread safe
+			printf("\rPart [%d/%d]\n", block + 1, blocks + 1);
 		} else {
-			cout << "\rPart [" << block + 1 << "/" << blocks + 1 << "]" << flush;
+			printf("\rPart [%d/%d]", block + 1, blocks + 1);
+			fflush(stdout);
 		}
 		delete[] buffer;
     }

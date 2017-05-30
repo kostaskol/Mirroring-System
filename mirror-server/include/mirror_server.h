@@ -32,7 +32,6 @@ private:
 	
 	int _q_done;
 	
-	bool _debug;
 	bool _search;
 	my_vector<my_string> _down_serv;
 

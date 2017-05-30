@@ -19,7 +19,6 @@ private:
 	
 	int _thread_num;
 	
-	bool _debug;
 	bool _empty;
 	bool _full;
 

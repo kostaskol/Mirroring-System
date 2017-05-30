@@ -21,8 +21,6 @@ private:
     int _sockfd;
 	int *_bytes_total, *_files_total;
 	
-	bool *_debug;
-
     void _get_info(my_string *path, my_string *addr, int *port, int *id, my_string &vec);
     bool _make_con(my_string addr, int port);
     bool _fetch(my_string path, my_string addr, int port, int id);
@@ -35,7 +33,7 @@ public:
 	pthread_cond_t *e_cond, pthread_cond_t *f_cond, pthread_cond_t *ack_cond, 
 	bool *done, int *q_done,
 	bool *empty, bool *full, bool *ack, int *bytes_total, int *files_total, 
-	my_string path, bool *debug);
+	my_string path);
 
     stats *run();
 

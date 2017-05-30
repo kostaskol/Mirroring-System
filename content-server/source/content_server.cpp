@@ -21,7 +21,6 @@ content_server::content_server(cmd_parser *parser) {
 	_thread_num = parser->get_thread_num();
     _sockfd = 0;
     _init = false;
-	_debug = parser->is_debug();
 	pthread_mutex_init(&_q_mtx, nullptr);
 	pthread_mutex_init(&_h_mtx, nullptr);
 	pthread_mutex_init(&_f_mtx, nullptr);
@@ -75,10 +74,9 @@ void content_server::run() {
 	pthread_t *tids = new pthread_t[_thread_num];
 	cout << "Master full " << &_full << endl;
 	for (int i = 0; i < _thread_num; i++) {
-		cout << "Master : " << " creating new thread" << endl;
 		content_manager *man = new content_manager(&_q_mtx, &_h_mtx, &_e_mtx,
 							&_f_mtx, &_e_cond, &_f_cond, &_queue, &_h_table,
-							_path, &_empty, &_full, _debug);
+							_path, &_empty, &_full);
 							
 		pthread_attr_t attr;
 		pthread_attr_init(&attr);
@@ -93,27 +91,19 @@ void content_server::run() {
             perror("Accept");
             exit(-1);
         }
-		cout << "Thread #" << pthread_self() << " just accepted an fd" << endl; 
 	
 		// Wait until the queue is not full
 
-		// TODO: Make sure we are safe to unlock it here
-		// At this point we are already holding the full mutex
-		cout << "Master : Waiting on queue" << endl;
 		pthread_mutex_lock(&_q_mtx);
 		{
-			cout << "Pushing connection" << endl;
 			_queue.push(client_fd);
 			
 			// Make sure that the queue isn't full
 			_full = _queue.full();
-			cout << "Queue is " << _full << endl;
 		}
 		pthread_mutex_unlock(&_q_mtx);
-		cout << "Locking _e_mtx" << endl;
 		pthread_mutex_lock(&_e_mtx);
 		{
-			cout << "Lowered empty flag" << endl;
 			_empty = false;
 			pthread_cond_signal(&_e_cond);
 		}
@@ -135,6 +125,5 @@ void *manager_starter(void *arg) {
 	content_manager *man = (content_manager*) arg;
 	man->run();
 	delete man;
-	cout << "Thread #" << pthread_self() << " exiting" << endl;
 	pthread_exit(nullptr);
 }

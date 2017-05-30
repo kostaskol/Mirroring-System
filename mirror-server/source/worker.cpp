@@ -21,7 +21,7 @@ worker::worker(queue<my_string> *q, pthread_mutex_t *e_mtx,
 	pthread_cond_t *e_cond, pthread_cond_t *f_cond, pthread_cond_t *ack_cond, 
 	bool *done, int *q_done,
 	bool *empty, bool *full, bool *ack, int *bytes_total, int *files_total, 
-	my_string path, bool *debug) {
+	my_string path) {
     _q = q;
     _path = path;
     _done = done;
