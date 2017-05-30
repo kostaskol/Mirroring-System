@@ -112,6 +112,9 @@ void content_manager::run() {
 				int delay;
 				bool ex;
 				try {
+					// To avoid doing any exception handling in our
+					// critical section, we check if the message is 
+					// well-formatted beforehand
 					my_string id = cmd.at(2);
 				} catch (runtime_error &e) {
 					cerr << "User has sent us a malformed message "  
@@ -122,9 +125,11 @@ void content_manager::run() {
 				// Find the delay for the given ID
 				pthread_mutex_lock(_h_mtx);
 				{
+					// Check the hash table for the ID
 					ex = _h_table->get_key(cmd.at(2), &delay);
 				}
 				pthread_mutex_unlock(_h_mtx);
+
 				if (!ex) {
 					cerr << "Provided ID (" << cmd.at(2) 
 						 << ") doesn't exist in the hash table" << endl;
@@ -198,6 +203,7 @@ void content_manager::_do_fetch(int clientfd, my_string path) {
 	 * not get what they want (unless the "corrected" path agrees with the
 	 * 							provided one)
 	 */
+
 	// Remove unwanted strings from the path
     corr.remove(".");
     corr.remove("..");
@@ -212,17 +218,18 @@ void content_manager::_do_fetch(int clientfd, my_string path) {
 	// Ask for a list of all of the files that match the path
 	// [Note] This remains from a previous version
 	// where the client was allowed to request entire directories
+	// which is no longer supported
 	// however the time it would take to change it
 	// is simply not worth it
     _get_contents_cond(&list, tmp_path, path);
 
     // Send the name of each file
     my_string fname = list.at(0);
+
     // Send the number of bytes that the client should read
     // and have them expect that number of bytes
     // For each part of the file name
     // send at most BLOCK_STR_SIZE characters
-
 
 	// Figure out the file's size
     ifstream inp(fname.c_str(), ios::binary | ios::in);
@@ -262,7 +269,6 @@ void content_manager::_get_list(my_string path, my_vector<my_string> *v) {
 
     // We should first check whether the input path is a simple file,
     // in which case we insert it into the list an return
-
     struct stat s;
     stat(path.c_str(), &s);
     if (S_ISDIR(s.st_mode)) {
@@ -299,6 +305,9 @@ void content_manager::_get_list(my_string path, my_vector<my_string> *v) {
 
 void content_manager::_get_contents_cond(my_vector<my_string> *v, 
 	my_string path, my_string cond) {
+	// Searches through a path recursively
+	// but only adds to the my_vector<my_string> object
+	// files that match the requested path 
     struct stat s;
     stat(path.c_str(), &s);
     if (S_ISDIR(s.st_mode)) {

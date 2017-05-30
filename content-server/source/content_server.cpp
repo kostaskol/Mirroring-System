@@ -91,9 +91,17 @@ void content_server::run() {
             perror("Accept");
             exit(-1);
         }
+
+        // 
+		pthread_mutex_lock(&_f_mtx);
+		{
+			while (_full) {
+				pthread_cond_wait(&_f_cond, &_f_mtx);
+			}
+		}
+		pthread_mutex_unlock(&_f_mtx);
 	
 		// Wait until the queue is not full
-
 		pthread_mutex_lock(&_q_mtx);
 		{
 			_queue.push(client_fd);
@@ -102,6 +110,10 @@ void content_server::run() {
 			_full = _queue.full();
 		}
 		pthread_mutex_unlock(&_q_mtx);
+
+		// Signal any thread that might be waiting
+		// on the empty mutex condition, since we know that  
+		// there is at least on element in the queue
 		pthread_mutex_lock(&_e_mtx);
 		{
 			_empty = false;
@@ -109,13 +121,7 @@ void content_server::run() {
 		}
 		pthread_mutex_unlock(&_e_mtx);
 		
-		pthread_mutex_lock(&_f_mtx);
-		{
-			while (_full) {
-				pthread_cond_wait(&_f_cond, &_f_mtx);
-			}
-		}
-		pthread_mutex_unlock(&_f_mtx);
+
         
     } while(true);
 }
