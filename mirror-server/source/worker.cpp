@@ -14,14 +14,14 @@
 using namespace std;
 
 worker::worker(queue<my_string> *q, pthread_mutex_t *e_mtx, 
-	pthread_mutex_t *f_mtx, pthread_mutex_t *rw_mtx, 
-	pthread_mutex_t *bytes_mtx, pthread_mutex_t *files_mtx,
-	pthread_mutex_t *d_mtx, pthread_mutex_t *q_done_mtx, 
-	pthread_mutex_t *ack_mtx, pthread_cond_t *q_done_cond,
-	pthread_cond_t *e_cond, pthread_cond_t *f_cond, pthread_cond_t *ack_cond, 
-	bool *done, int *q_done,
-	bool *empty, bool *full, bool *ack, int *bytes_total, int *files_total, 
-	my_string path) {
+pthread_mutex_t *f_mtx, pthread_mutex_t *rw_mtx, 
+pthread_mutex_t *bytes_mtx, pthread_mutex_t *files_mtx,
+pthread_mutex_t *d_mtx, pthread_mutex_t *q_done_mtx, 
+pthread_mutex_t *ack_mtx, pthread_mutex_t *spread_mtx, 
+pthread_cond_t *q_done_cond, pthread_cond_t *e_cond, pthread_cond_t *f_cond,
+pthread_cond_t *ack_cond, bool *done, int *q_done, bool *empty, bool *full, 
+bool *ack, int *bytes_total, int *files_total, my_string path, 
+my_vector<int> *spread) {
 		
 	// Initialise the mutex, conditions and mutex conditions
     _q = q;
@@ -34,6 +34,7 @@ worker::worker(queue<my_string> *q, pthread_mutex_t *e_mtx,
 	_file_mtx = files_mtx;
 	_q_done_mtx = q_done_mtx;
 	_ack_mtx = ack_mtx;
+	_spread_mtx = spread_mtx;
 	
 	_e_cond = e_cond;
 	_f_cond = f_cond;
@@ -45,6 +46,8 @@ worker::worker(queue<my_string> *q, pthread_mutex_t *e_mtx,
 	_q_done = q_done;
 	_done = done;
 	_ack = ack;
+	
+	_spread = spread;
 	
 	// (NOTE: These are pointers)
 	_bytes_total = bytes_total;
@@ -238,6 +241,12 @@ bool worker::_fetch(my_string path, my_string addr, int port, int id) {
 		(*_files_total)++;
 	}
 	pthread_mutex_unlock(_file_mtx);
+	
+	pthread_mutex_lock(_spread_mtx);
+	{
+		_spread->push(bytes);
+	}
+	pthread_mutex_unlock(_spread_mtx);
     return true;
 }
 

@@ -17,6 +17,8 @@ public:
     my_string(const my_string &other);
     my_string(char c);
     my_string(const int num);
+	my_string(const long int num);
+	my_string(const double num);
 
     virtual ~my_string();
 

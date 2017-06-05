@@ -23,7 +23,7 @@ private:
     pthread_t *_managers;
     int _sockfd;
     pthread_mutex_t _rw_mtx, _f_mtx, _e_mtx, _q_done_mtx, _bytes_mtx, 
-	_file_mtx, _done_mtx, _ack_mtx;
+	_file_mtx, _done_mtx, _ack_mtx, _spread_mtx;
     pthread_cond_t _e_cond, _f_cond, _q_done_cond, _ack_cond;
 	
 	int _bytes_recvd, _files_recvd;	
@@ -31,6 +31,8 @@ private:
 	bool _empty, _full, _done, _ack;
 	
 	int _q_done;
+	
+	my_vector<int> _spread;
 	
 	bool _search;
 	my_vector<my_string> _down_serv;

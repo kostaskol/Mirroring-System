@@ -112,7 +112,7 @@ void mirror_init::run() {
                 cout << "Files transferred " << resp_vec.at(1) << endl;
                 cout << "Bytes transferred " << resp_vec.at(2) << endl;
 				cout << "Mean size of files " << resp_vec.at(3) << endl;
-				cout << "Standard diviation of size " << resp_vec.at(4) << endl;
+				cout << "Standard spread of size " << resp_vec.at(4) << endl;
             } catch(runtime_error &e) {
                 cout << "Oops. The server has sent us a bad response (" << resp 
 					 << ")" << endl;

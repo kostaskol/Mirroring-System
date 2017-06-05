@@ -55,6 +55,24 @@ my_string::my_string(int num) {
     _len = strlen(_str) + 1;
 }
 
+my_string::my_string(const long int num) {
+	char tmp[1024];
+	sprintf(tmp, "%ld", num);
+	
+	_str = new char[strlen(tmp) + 1];
+	strcpy(_str, tmp);
+	_len = strlen(_str) + 1;
+}
+
+my_string::my_string(const double num) {
+	char tmp[2048];
+	sprintf(tmp, "%lf", num);
+	
+	_str = new char[strlen(tmp) + 1];
+	strcpy(_str, tmp);
+	_len = strlen(_str) + 1;
+}
+
 
 my_string::~my_string() {
     delete[] _str;

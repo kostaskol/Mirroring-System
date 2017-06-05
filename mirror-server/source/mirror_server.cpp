@@ -43,6 +43,7 @@ mirror_server::mirror_server(cmd_parser *args) {
 	pthread_mutex_init(&_bytes_mtx, nullptr);
 	pthread_mutex_init(&_file_mtx, nullptr);
 	pthread_mutex_init(&_ack_mtx, nullptr);
+	pthread_mutex_init(&_spread_mtx, nullptr);
 	pthread_cond_init(&_f_cond, nullptr);
 	pthread_cond_init(&_e_cond, nullptr);
 	pthread_cond_init(&_q_done_cond, nullptr);
@@ -54,8 +55,9 @@ mirror_server::mirror_server(cmd_parser *args) {
 	for (int i = 0; i < _worker_num; i++) {
 		worker *w = new worker(&_data_queue, &_e_mtx, &_f_mtx, &_rw_mtx,
 			&_bytes_mtx, &_file_mtx, &_done_mtx, &_q_done_mtx, &_ack_mtx,
-			&_q_done_cond, &_e_cond, &_f_cond, &_ack_cond, &_done, &_q_done, 
-			&_empty, &_full, &_ack, &_bytes_recvd, &_files_recvd, _outp_path);
+			&_spread_mtx, &_q_done_cond, &_e_cond, &_f_cond, &_ack_cond, &_done,
+			&_q_done, &_empty, &_full, &_ack, &_bytes_recvd, &_files_recvd, 
+			_outp_path, &_spread);
 		pthread_attr_t attr;
 		pthread_attr_init(&attr);
 		pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
@@ -101,6 +103,12 @@ void mirror_server::_var_init() {
 		_files_recvd = 0;
 	}
 	pthread_mutex_unlock(&_file_mtx);
+	
+	pthread_mutex_lock(&_spread_mtx);
+	{
+		_spread.clear();
+	}
+	pthread_mutex_unlock(&_spread_mtx);
 }
 
 
@@ -222,20 +230,27 @@ void mirror_server::run() {
 
 		// Send the resulting statistics to the client
 	    my_string msg = "OK:";
-	    msg += _files_recvd;
-	    msg += ":";
-	    msg += _bytes_recvd;
-		msg += ":";
-		if (_files_recvd != 0)
-			msg += (_bytes_recvd / _files_recvd);
-		else 
-			msg += 0;
-		msg += ":";
-		if (_files_recvd != 0)
-			msg += ((int) sqrt(_bytes_recvd / _files_recvd));
-		else 
-			msg += 0;
-	    msg += ";";
+		if (_files_recvd == 0) {
+			msg += "0:0:0:0;";
+		} else {
+			int avg = _bytes_recvd / _files_recvd;
+			double spread_actl = 0;
+			for (size_t i = 0; i < _spread.size(); i++) {
+				cout << "Spread " << i << " is " << _spread.at(i) << endl;
+				spread_actl += pow(_spread.at(i) - avg, 2);
+				cout << "Spread actual is " << spread_actl << endl;
+			}
+			cout << "Final actual spread is " << spread_actl << endl;
+		    msg += _files_recvd;
+		    msg += ":";
+		    msg += _bytes_recvd;
+			msg += ":";
+			msg += avg;
+			msg += ":";
+			msg += my_string(spread_actl);
+		    msg += ";";
+		}
+		cout << "Final message is " << msg << endl;
 	    send(clientfd, msg.c_str(), msg.length(), 0);
 	    close(clientfd);
 		
