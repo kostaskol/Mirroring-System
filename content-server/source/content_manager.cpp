@@ -7,6 +7,7 @@
 #include <dirent.h>
 #include <fstream>
 #include <signal.h>
+#include <stdexcept>
 #include "content_manager.h"
 
 

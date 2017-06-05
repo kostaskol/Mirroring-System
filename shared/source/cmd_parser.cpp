@@ -28,7 +28,7 @@ void cmd_parser::parse(int argc, char **argv) {
 
     switch (_mode) {
         case MODE_CS: {
-            if (argc != 7 && argc != 8)
+            if (argc != 7)
                 err("Invalid number of command line arguments", argv[0]);
             for (int arg = 1; arg < argc; arg++) {
                 my_string argument = argv[arg];
@@ -63,7 +63,7 @@ void cmd_parser::parse(int argc, char **argv) {
         }
 
         case MODE_MI: {
-          if (argc != 7 && argc != 8) {
+          if (argc != 7) {
             err("Invalid number of command line arguments", argv[0]);
           }
             for (int arg = 1; arg < argc; arg++) {
@@ -102,6 +102,9 @@ void cmd_parser::parse(int argc, char **argv) {
         }
 
         case MODE_MS: {
+			if (argc != 8 && argc != 7) {
+				err("Invalid number of command line arguments", argv[0]);
+			}
             for (int arg = 1; arg < argc; arg++) {
                 my_string argument = argv[arg];
                 if (argument == "-p") {
