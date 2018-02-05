@@ -5,6 +5,7 @@ Systems Programming - Project 3 - Mirroring System
             Compilation:
                 make cs/ms/mi/all (Default: all)
             Execution: 
+            
                 + mirror-serv -m output -w <num_workers> -p <port> (-s)
                 + content-serv -d (relative)(/_or_absolue)/path/to/dir/or/file -w <num_workers> -p <port>
                 + mirror-init -n <address> -p <port> -s <ContentServerAddress1>:<ContentServerPort1>:<Directory or filename1><Delay1> ...
