@@ -1,105 +1,38 @@
-Προγραμματισμός Συστήματος - Εργασία 3 - Mirroring System
-Ονοματεπώνυμο: Κωνσταντίνος Κολυβάς
-Α.Μ.: 1115201200066
+Systems Programming - Project 3 - Mirroring System
 
-1. Εισαγωγικά:
-	1.1. Εντολή μεταγλώττισης & ενδεικτικές εντολές εκτέλεσης:
-		Μεταγλώττιση:
-			make cs/ms/mi/all (Default: all)
-		Εκτέλεση:
-			Mirror Server:
-				mirror-serv -m output -w <workers> -p <port> (-s)
-				content-serv -d (relativ)(/_or_absolute)/path/to/dir/or/file -w <worker> -p <port>
-				mirror-init -n <address> -p <port> -s <	<ContentServerAddress1>:<ContentServerPort1>:<Directory or filename1>:<Delay1>
-	1.2. Οι επιλογές γραμμής εντολών είναι αυτές που υπάρχουν στην εκφώνηση της εργασίας με την πρόσθεση των εξής:
-		1.2.1 Σε όλα τα προγράμματα έχει προστεθεί η επιλογή "--debug", οπότε και εκτυπώνονται επιπρόσθετα μηνύματα
-		1.2.2 Στο πρόγραμμα mirror-serv υπάρχει η επιλογή "-s", η οποία επιτρέπει στο πρόγραμμα να αναζητήσει στην λίστα από τον content-server
-				την οντότητα που έχει ζητήσει ο χρήστης
-		1.2.3. Στο πρόγραμμα content-serv έχει προστεθεί η επιλογή "-w", η οποία δηλώνει τον αριθμό των threads που θα τρέχουν στο πρόγραμμα
-				για να εξυπηρετούν τους mirror servers.
+1. Introduction
+    1.1. Compilation and execution example
+            Compilation:
+                make cs/ms/mi/all (Default: all)
+            Execution: 
 
-2. Υλοποίηση:
-	2.1. Λειτουργία content server:
-		Κατά την εκκίνηση του, ο κάθε content server δημιουργεί N worker threads. Αυτά τα threads επικοινωνούν με το Master thread μόνο μέσω μια ουράς, 
-		ο συγχρονισμός της οποίας ελέγχεται από έναν αριθμό από mutex (περισσότερες πληροφορίες βρίσκονται μέσα στα αρχεία κώδικα σε μορφή σχολίων).
-		Το Master thread "ακούει" στο port που του έχει ανατεθεί για τυχόν αιτήματα, ενώ τα worker threads περιμένουν την εισαγωγή κάποιου στοιχείου στην ουρά.
-		Όταν έρθει ένα αίτημα, το socket file descriptor του εισάγεται στην ουρά και επανέρχεται στην κατάσταση αναμονής αίτησης.
-		Με την εισαγωγή κάποιου στοιχείου στην ουρά, κάποιο worker thread, το οποίο μέχρι εκείνη την στιγμή περίμενε, "ξυπνάει" και ικανοποιεί την αίτηση
-		(βλ. 2.1 - Διαδικασία μεταφοράς αρχείων).
-	
-	2.2. Διαδικασία μεταφοράς αρχείων:
-		2.2.1. Κάθε content server, κατά την εκκίνησή του, δημιουργεί N worker threads. Κάθε ένα από αυτά τα threads, στέλνει αίτημα LIST στο content server που του
-			έχει ανατεθεί. Αφού πάρει τα αποτελέσματα του αιτήματος, ελέγχει για ταύτιση μέρους του μονοπατιού του αρχείου με το μονοπάτι που έχει ζητήσει ο χρήστης.
-			(η ταύτιση αυτή εξαρτάται από το flag -s. Για περισσότερες πληροφορίες για το πως λειτουργεί αυτό το flag, βλ. mirror-server/source/mirror_manager.cpp::mirror_manager.cpp)
-			Αν υπάρξει τέτοια ταύτιση, τότε αυτό το αρχειο μαζί με το address, port και id στην λίστα υπό την μορφή:
-				path/to/file:address:port:id
-			Μόλις κάποιο worker thread "δει" κάποιο στοιχείο στην ουρά, το εξάγει από αυτή και στέλνει εντολή FETCH στο address:port μαζί με το ID 
-			που έχει παρέξει το mirror manager. Τέλος, διαβάζει τα bytes του αρχείου από τον server και τα αποθηκεύει σε τοπικό κατάλογο.
-			(Για περισσότερες πληροφορίες βλ. 2.2.3. Μεταφορά αρχείων)
-		2.2.2. Μεταφορά ονομάτων αρχείων:
-			Όταν κάποιο αίτημα FETCH φτάσει σε κάποιο content server, το αίτημα εισέρχεται σε μια ουρά το κάθε στοιχείο της 
-			οποίας αναλαμβάνεται από ένα από τα νήματα που τρέχουν. Το νήμα αυτό κοιτάζει αναδρομικά στον φάκελο και υποφακέλους που έχουν ανατεθεί στον 
-			content server και δημιουργεί μια λίστα ονομάτων αρχείων την οποία και αποστέλλει με τον εξής τρόπο:
-			Βρίσκεται ο αριθμός επαναλήψεων που απαιτούνται για να αποσταλεί ολόκληρο το όνομα του αρχείο (μήκος αρχείου σε bytes / μέγεθος buffer
-			(σταθερά ορισμένη στο αρχείο shared/include/constants.h)). Αποστέλεται στον client αυτός ο αριθμός και, στη συνέχεια, 
-			και τα 2 προγράμματα μπαίνουν σε μια δομή επανάληψης μέχρι να ληφθεί όλο το όνομα του αρχείου. Μετά την αποστολή ολόκληρης της λίστας,
-			η σύνδεση κλείνει και το νήμα περιμένει το επόμενο αίτημα.
-		2.2.3. Μεταφορά αρχείων:
-			Μόλις κάποιο νήμα του content server δεχθεί αίτημα FETCH, διαβάζει το delay από το hash table σύμφωνα με το ID, κάνει sleep για το συγκεκριμένο
-			διάστημα και ξεκινάει την μεταφορά του αρχείου:
-			Αρχικά ανοίγει το αρχείο (σε binary mode), βρίσκει το μέγεθός του και το στέλνει στον worker του mirror server. Στη συνέχεια, δημιουργεί έναν
-			buffer συγκεκριμένου μήκους, και "σπάει" το αρχείο σε <μήκος αρχείου> / <μήκος buffer> κομμάτια. Κάνει τόσες επαναλήψεις όσες είναι τα κομμάτια
-			και τα αποστέλει ένα προς ένα. Μετά την αποστολή όλων των κομματιών του αρχείου, η σύνδεση κλείνει και το νήμα περιμένει το επόμενο αίτημα.
+                + mirror-serv -m output -w <num_workers> -p <port> (-s)
+                + content-serv -d (relative)(/_or_absolue)/path/to/dir/or/file -w <num_workers> -p <port>
+                + mirror-init -n <address> -p <port> -s <ContentServerAddress1>:<ContentServerPort1>:<Directory or filename1><Delay1> ...
 
+                Use <executable> --help for a list of all command line options
 
-	2.3. Χρήση Threads:
-		Η γενική λογική συγχρονισμού που ακολουθούν ο mirror server και ο content server είναι η εξής:
-		(Θα περιγραφεί η λογική του mirror server. Η λογική του content server είναι σχεδόν ίδια.)
-		Σημείωση: Η λειτουργία έχει γραφτεί ιδιαίτερα λεπτομερώς σε μορφή σχολίων μέσα στα αρχεία κώδικα. 
-		(mirror-server/source/mirror_server.cpp|worker.cpp|mirror_manager.cpp)
-		
-		Producer:
-			1. Ελέγχει αν η ουρά είναι γεμάτη μέσω conditional waiting και mutexes
-			2. Κλειδώνει το mutex πρόσβασης στην ουρά
-			3. Εισάγει ένα στοιχείο στην ουρά
-			4. Θέτει την διαμοιραζόμενη μεταβλητή full αναλόγως
-			5. Ξεκλειδώνει το mutex πρόσβασης
-			6. Ενημερώνει κάποιον τυχόν consumer που περιμένει, πως υπάρχει τουλάχιστον ένα στοιχείο στην λίστα
-			6. goto 1 μέχρι να τελειώσει όλη η λίστα
-			
-		Consumer:
-			1. Ελέγχει αν η ουρά είναι άδεια, ή αν η διαδικασία εισαγωγής έχει τελειώσει, μέσω conditional waiting και mutexes
-			2.1. Αν η ουρά δεν είναι άδεια και η διαδικασία εισαγωγής δεν έχει τελειώσει:
-				1. Κλειδώνει το mutex πρόσβασης στην ουρά
-				2. Κάνει pop ένα στοιχείο από την ουρά
-				3. Θέτει την μεταβλητή empty αναλόγως
-				4. Ξεκλειδώνει το mutex πρόσβασης στην ουρά
-				5. Ενημερώνει κάποιον τυχόν producer που περιμένει, πως υπάρχει τουλάχιστον μια κενή θέση στην λίστα
-				6. go to 1
-			2.2. Αν η διαδικασία εισαγωγής έχει τελειώσει:
-				1. Κλειδώνει το mutex πρόσβασης στην ουρά
-				2. Ελέγχει αν η ουρά είναι άδεια:
-					1. Αν δεν είναι, κάνει pop ένα στοιχείο από την ουρά
-					2. Θέτει την μεταβλητή empty αναλόγως
-					3. Ξεκλειδώνει το mutex πρόσβασης στην ουρά
-					4. goto 2.2.
-					 
-					1. Αν είναι, ο consumer πηγαίνει στην επόμενη κατάσταση (αναμονής)
-			
-			
-			Κατάσταση αναμονής:
-			Σε αυτή την κατάσταση εμπλέκονται μόνο οι Consumers και ο Master.
-			Μόλις όλοι οι Producers πεθάνουν, οπότε πρέπει απλά να αδειάσει η ουρά,
-			ο Master ενημερώνει όλους τους Consumers, μέσω διαμοιραζόμενης μεταβλητής,
-			πως δεν χρειάζεται να περιμένουν πλέον αν η ουρά είναι άδεια.
-			
-			Στην συνέχεια "περιμένει" μέχρι να τελειώσουν την εργασία τους όλα τα
-			Consumer threads που είχε δημιουργήσει. Αφού τελειώσουν,
-			κάνει όλες τις αρχικοποιήσεις που χρειάζεται, ενημερώνει τους Consumers
-			και η συγκεκριμένη εργασία τελειώνει.
-			
-			Όταν οι Consumers δεχτούν το "σήμα" πώς η διαδικασία έχει τελειώσει,
-			αφαιρούν στοιχεία από την ουρά μέχρι αυτή να αδειάσει. Μόλις 
-			αφαιρεθεί το τελευταίο στοιχείο της ουράς, ο κάθε Consumer προσθέτει
-			'1' σε μια διαμοιραζόμενη μεταβλητή και αναμένει σήμερα acknowledgement 
-			από το Master thread. Μόλις το λάβει, η συγκεκριμένη εργασία τελειώνει.
+2. Implementation
+    2.1. Content Server:
+        Upon execution, each Content Server creates <N> worker threads. Communication with the Master thread is performed through a queue, whose synchronisation is ensured by a number of mutexes
+        The Master thread waits for incoming connections while the worker threads await the insertion of an element in the work queue.
+        Once a request arrives, its socket file descriptor is inserted into the work queue and the Master thread returns to its waiting state.
+        When an element is inserted into the work queue, one of the worker threads responds to the request (see below)
+
+    2.2. File transfer procedure:
+        2.2.1.
+            Upon execution, each Mirror Server creates <N> worker threads, each of which sends a LIST request toe the Content Server that has been assigned to it. When it receives the response, it checks if the path to each file matches the 
+        path requested by the user (this check depends on the -s flag. Please see mirror-server/source/mirror_manager.cpp) for more information).
+        If such a match is made, the file, along with the address port of the Content Server and its produced ID, is inserted into the list with the following format:
+            path/to/file:address:port:ID
+        Once an element is inserted into the list, a worker thread is notified, which, in turn, removes it from the list and sends a FETCH request to address:port along with the ID that the Mirror Manager has produced.
+        Lastly, it reads the bytes of the file from the Content Server and saves the file in a local directory. (for more information, please see 2.2.3. File Transfer).
+        2.2.2. File name transfer:
+            When a LIST request is received by a Content Server, it is inserted into a work queue, and each element of that work queue is assigned to a worker thread.
+            Each thread, after receiving the request, recursively check the directory and sub-directories that have been assigned to the Content Server, splits each file's name into blocks and sends them back to the Mirror Initiator that 
+            made the request. After that, the connection is closed and the worker thread returns to its waiting state.
+        2.2.3. File transfer:
+            When a FETCH request is received by a Content Server worker thread, it reads the delay according to the received ID, sleeps for that amount of time and then begins the actual file transfer:
+            Initially, the file is opened in binary mode, its size is calculated and the file is split into (1024 byte) blocks, which are then iteratively sent toe the Mirror Server. After this process has been completed,
+            the connection is closed and the worker thread returns to it waiting state.
+            
